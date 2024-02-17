@@ -41,30 +41,32 @@ class NodeServerTCP(NodeServerBase):
             await server.serve_forever()
 
 
-class ProtocolUDP(asyncio.DatagramProtocol):
-    def __init__(self):
-        self.transport = None
+class ServerProtocolUDP(asyncio.DatagramProtocol):
 
     def connection_made(self, transport):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        message = data.decode()
-        logger.debug(f"Node received a request from {addr}: {message}")
+        logger.debug(f"Node received a request from {addr}: {data.decode()}")
 
+    def error_received(self, exc):
+        logger.error(exc)
 
-class EchoProtocolUDP(ProtocolUDP):
+    def connection_lost(self, exc):
+        logger.debug(f"Connection closed: {exc}")
+        self.on_con_lost.set_result(True)
+
+class EchoServerProtocol(ServerProtocolUDP):
 
     def datagram_received(self, data, addr):
         super().datagram_received(data, addr)
-        # Send response back to the client
         self.transport.sendto(data, addr)
 
 
 class NodeServerUDP(NodeServerBase):
 
     def __init__(self, address: tuple[str, int], protocol=None):
-        self.protocol = protocol or EchoProtocolUDP
+        self.protocol = protocol or EchoServerProtocol
         super().__init__(address=address)
 
     async def start_server(self):

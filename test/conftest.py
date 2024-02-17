@@ -1,8 +1,9 @@
 import pytest
 import logging
+import json
 
 from data_node_network.node_client import NodeClientUDP, Node
-from data_node_network.node_server import NodeServerUDP, ProtocolUDP
+from data_node_network.node_server import NodeServerUDP, ServerProtocolUDP
 import asyncio
 
 
@@ -31,8 +32,11 @@ def create_nodes():
     return _create_nodes
 
 
-class TestNodeProtocolUDP(ProtocolUDP):
-
+class TestNodeProtocolUDP(ServerProtocolUDP):
+    def datagram_received(self, data, addr):
+        super().datagram_received(data, addr)
+        self.transport.sendto(data, addr)
+        
     def datagram_received(self, data, addr):
         super().datagram_received(data, addr)
         response = {
@@ -44,30 +48,31 @@ class TestNodeProtocolUDP(ProtocolUDP):
             },
             "tags": {"host": "server01", "region": "us-west"},
         }
+        response = json.dumps(response)
         # Send response back to the client
         self.transport.sendto(response.encode(), addr)
 
 
-class TestNode(NodeServerUDP):
-    def __init__(self, address=("localhost", 1234)):
+class TestNodeUDP(NodeServerUDP):
+    def __init__(self, address=("localhost", 0)):
         super().__init__(address=address, protocol=TestNodeProtocolUDP)
 
 
-class TestNodeClient(NodeClientUDP):
+class TestNodeClientUDP(NodeClientUDP):
     pass
 
 
 @pytest.fixture
 def test_node():
     def _node_server(address):
-        return TestNode(address)
+        return TestNodeUDP(address)
 
     return _node_server
 
 
 @pytest.fixture
 def test_node_client():
-    def _node_client(nodes):
-        return TestNodeClient(nodes, interval=1)
+    def _node_client(nodes, interval, buffer):
+        return TestNodeClientUDP(nodes=nodes, interval=interval, buffer=buffer)
 
     return _node_client

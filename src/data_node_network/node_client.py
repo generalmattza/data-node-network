@@ -2,12 +2,21 @@ import asyncio
 import time
 from prometheus_client import start_http_server, Counter, Histogram
 import logging
+import json
 
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
 config = config_global["data_node_network"]
 
+
+def convert_bytes_to_human_readable(num: float) -> str:
+    """Convert bytes to a human-readable format."""
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
+        if num < 1024.0:
+            return f"{num:.2f} {unit}"
+        num /= 1024.0
+    return f"{num:.2f} {unit}"
 
 class Node:
     def __init__(self, node_id, address):
@@ -17,10 +26,12 @@ class Node:
 
 
 class NodeClient:
-    def __init__(self, nodes, interval=5):
+    def __init__(self, nodes, interval=5, buffer=None, parser=None):
         self.nodes = nodes
         self.interval = interval
         self.stop_event = asyncio.Event()
+        self.buffer = buffer or []
+        self.parser = json.loads if parser is None else parser
 
         # Prometheus metrics
         self.request_count = Counter(
@@ -36,6 +47,11 @@ class NodeClient:
         self.failed_request_count = Counter(
             "node_client_failed_requests_total",
             "Total number of failed requests made by NodeClient",
+            labelnames=["node_id"],
+        )
+        self.bytes_received_count = Counter(
+            "node_client_bytes_received_total",
+            "Total number of bytes received by NodeClient",
             labelnames=["node_id"],
         )
         self.waiting_time_histogram = Histogram(
@@ -57,7 +73,7 @@ class NodeClient:
         # Start Prometheus HTTP server
         start_http_server(prometheus_port)
         loop = asyncio.get_event_loop()
-        loop.create_task(self.periodic_request())
+        loop.create_task(self.periodic_request("getData"))
 
         try:
             loop.run_forever()
@@ -110,6 +126,52 @@ class NodeClientTCP(NodeClient):
                 await writer.wait_closed()
 
 
+class ClientProtocolUDP(asyncio.DatagramProtocol):
+    def __init__(self, on_con_lost_future):
+        self.on_con_lost_future = on_con_lost_future
+        self.transport = None
+
+    def connection_made(self, transport):
+        self.transport = transport
+        self.server_address_str = f"{self.transport.get_extra_info('peername')[0]}:{self.transport.get_extra_info('peername')[1]}"
+        logger.debug(f"Connected to server at {self.server_address_str}")
+
+    def datagram_received(self, data, addr):
+        print(f"Received {convert_bytes_to_human_readable(len(data))} data from {self.server_address_str}")
+        logger.debug("Closing the socket")
+        self.transport.close()
+
+    def error_received(self, exc):
+        logger.error(exc)
+
+    def connection_lost(self, exc):
+        logger.debug(f"Connection closed: {exc}")
+        self.on_con_lost_future.set_result(True)
+
+
+# Define a simple DatagramProtocol to request and queue incoming data
+class NodeClientProtocolUDP(ClientProtocolUDP):
+    def __init__(
+        self,
+        on_con_lost_future,
+        data_received_callback,
+        message="",
+    ):
+        self.message = message
+        self.data_received_callback = data_received_callback
+        super().__init__(on_con_lost_future)
+
+    def connection_made(self, transport):
+        super().connection_made(transport)
+        logger.debug(f"Sending message {self.message} to {self.server_address_str}")
+        self.transport.sendto(self.message.encode())
+
+    def datagram_received(self, data, addr):
+        super().datagram_received(data, addr)
+        # Resolve the future to indicate that the data has been received
+        self.data_received_callback(data.decode())
+
+
 class NodeClientUDP(NodeClient):
     async def request(self, node, message=""):
         start_time = time.time()
@@ -117,32 +179,25 @@ class NodeClientUDP(NodeClient):
         try:
             loop = asyncio.get_running_loop()
 
-            # Define a simple DatagramProtocol to handle incoming data
-            class UDPProtocol(asyncio.DatagramProtocol):
-                def __init__(self, future):
-                    self.future = future
-
-                def datagram_received(self, data, addr):
-                    # Process the received data (you can customize this part)
-                    # For now, just print the received data
-                    print(f"Received data from {node.node_id}: {data.decode()}")
-
-                    # Resolve the future to indicate that the data has been received
-                    self.future.set_result(True)
-
             # Create a future to signal when data is received
             data_received_future = loop.create_future()
+            on_con_lost = loop.create_future()  # not currently used
 
+            
+            def data_received_callback(data):
+                self.buffer.append(self.parser(data))
+                data_received_future.set_result(True)
+                self.bytes_received_count.labels(node_id=node.node_id).inc(len(data))
+                
             # Create a DatagramProtocol instance with the future
-            udp_protocol = UDPProtocol(data_received_future)
+            udp_protocol_factory = lambda: NodeClientProtocolUDP(
+                on_con_lost, data_received_callback, message=message
+            )
 
             # Create a UDP connection
             transport, _ = await loop.create_datagram_endpoint(
-                lambda: udp_protocol, remote_addr=node.address
+                udp_protocol_factory, remote_addr=node.address
             )
-
-            # Send a request to the node
-            transport.sendto(message.encode())
 
             # Wait for data to be received or timeout
             await asyncio.wait_for(data_received_future, timeout=5)
