@@ -57,7 +57,9 @@ def test_network(server=NodeServerTCP, client=NodeClientTCP):
 
     try:
         # Start the client
-        node_client_task = loop.create_task(node_client.periodic_request())
+        node_client_task = loop.create_task(
+            node_client.periodic_request(message="getData")
+        )
 
         # Run both server and client tasks concurrently
         loop.run_until_complete(asyncio.gather(server_task, node_client_task))
@@ -70,5 +72,6 @@ def test_network(server=NodeServerTCP, client=NodeClientTCP):
 
 if __name__ == "__main__":
     setup_logging()
-    test_network()
-    # test_network(server=NodeServerUDP, client=NodeClientUDP)
+    # test_network()
+    test_network(server=NodeServerUDP, client=NodeClientUDP)
+#

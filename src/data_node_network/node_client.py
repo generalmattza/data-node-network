@@ -44,12 +44,12 @@ class NodeClient:
             labelnames=["node_id"],
         )
 
-    async def request(self, node):
+    async def request(self, node, message=""):
         raise NotImplementedError("Subclasses must implement request method")
 
-    async def periodic_request(self):
+    async def periodic_request(self, message=""):
         while not self.stop_event.is_set():
-            tasks = [self.request(node) for node in self.nodes]
+            tasks = [self.request(node, message=message) for node in self.nodes]
             await asyncio.gather(*tasks)
             await asyncio.sleep(self.interval)
 

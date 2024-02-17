@@ -1,17 +1,34 @@
 import pytest
 import logging
 
-from data_node_network.node_client import NodeClientUDP
+from data_node_network.node_client import NodeClientUDP, Node
 from data_node_network.node_server import NodeServerUDP, ProtocolUDP
 import asyncio
-
-logger = logging.getLogger(__name__)
 
 
 def get_random_temperature():
     import random
 
     return random.uniform(20.0, 30.0)
+
+
+@pytest.fixture
+def create_nodes():
+    def _create_nodes(address):
+        address = address or ("localhost", 5001)
+        nodes_list = [
+            Node(node_id=1, address=address),
+            Node(node_id=2, address=address),
+            Node(node_id=3, address=address),
+            Node(node_id=4, address=address),
+            Node(node_id=5, address=address),
+            Node(node_id=6, address=address),
+            Node(node_id=7, address=address),
+            # Add more nodes as needed
+        ]
+        return nodes_list
+
+    return _create_nodes
 
 
 class TestNodeProtocolUDP(ProtocolUDP):
@@ -37,8 +54,8 @@ class TestNode(NodeServerUDP):
 
 
 class TestNodeClient(NodeClientUDP):
+    pass
 
-    
 
 @pytest.fixture
 def test_node():
@@ -46,3 +63,11 @@ def test_node():
         return TestNode(address)
 
     return _node_server
+
+
+@pytest.fixture
+def test_node_client():
+    def _node_client(nodes):
+        return TestNodeClient(nodes, interval=1)
+
+    return _node_client

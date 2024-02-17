@@ -58,7 +58,7 @@ class EchoProtocolUDP(ProtocolUDP):
     def datagram_received(self, data, addr):
         super().datagram_received(data, addr)
         # Send response back to the client
-        self.transport.sendto(data.encode(), addr)
+        self.transport.sendto(data, addr)
 
 
 class NodeServerUDP(NodeServerBase):
