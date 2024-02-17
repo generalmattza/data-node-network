@@ -1,0 +1,5 @@
+[node_server]
+packet_size = 4096
+
+[node_client]
+packet_size = 4096
