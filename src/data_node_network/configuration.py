@@ -1,6 +1,9 @@
+from __future__ import annotations
 from typing import Union
 from pathlib import Path
 import tomli
+
+CONFIG_FILEPATH = "config/application.toml"
 
 
 def load_config(filepath: Union[str, Path]) -> dict:
@@ -36,3 +39,6 @@ def load_config(filepath: Union[str, Path]) -> dict:
     # else load as binary
     with open(filepath, "rb") as file:
         return file.read()
+
+
+config_global = load_config(CONFIG_FILEPATH)

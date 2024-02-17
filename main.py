@@ -30,14 +30,15 @@ def setup_logging(filepath="config/logger.yaml"):
 
 
 def create_nodes():
+    address = ("localhost", 5001)
     nodes_list = [
-        Node(node_id=1, host="localhost", port=5001),
-        Node(node_id=2, host="localhost", port=5001),
-        Node(node_id=3, host="localhost", port=5001),
-        Node(node_id=4, host="localhost", port=5001),
-        Node(node_id=5, host="localhost", port=5001),
-        Node(node_id=6, host="localhost", port=5001),
-        Node(node_id=7, host="localhost", port=5001),
+        Node(node_id=1, address=address),
+        Node(node_id=2, address=address),
+        Node(node_id=3, address=address),
+        Node(node_id=4, address=address),
+        Node(node_id=5, address=address),
+        Node(node_id=6, address=address),
+        Node(node_id=7, address=address),
         # Add more nodes as needed
     ]
     return nodes_list
@@ -47,7 +48,7 @@ def test_network(server=NodeServerTCP, client=NodeClientTCP):
     loop = asyncio.get_event_loop()
 
     # Create and start the server
-    node_server = server("localhost", 5001)
+    node_server = server(address=("localhost", 5001))
     server_task = loop.create_task(node_server.start_server())
 
     # Create the client
@@ -69,5 +70,5 @@ def test_network(server=NodeServerTCP, client=NodeClientTCP):
 
 if __name__ == "__main__":
     setup_logging()
-    # test_network()
-    test_network(server=NodeServerUDP, client=NodeClientUDP)
+    test_network()
+    # test_network(server=NodeServerUDP, client=NodeClientUDP)

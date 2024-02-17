@@ -1,13 +1,15 @@
 import asyncio
 import logging
+from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
+config = config_global["data_node_network"]
 
 
 class NodeServerBase:
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
+    def __init__(self, address):
+        self.address = address
+        self.host, self.port = address
 
     async def handle_client(self, reader, writer):
         raise NotImplementedError("Subclasses must implement handle_client method")
@@ -18,7 +20,7 @@ class NodeServerBase:
 
 class NodeServerTCP(NodeServerBase):
     async def handle_client(self, reader, writer):
-        data = await reader.read(100)
+        data = await reader.read(config["node_server"]["buffer_size"])
         message = data.decode()
 
         # Assuming a simple response for demonstration purposes
@@ -39,7 +41,7 @@ class NodeServerTCP(NodeServerBase):
             await server.serve_forever()
 
 
-class NodeServerUDPProtocol:
+class ProtocolUDP(asyncio.DatagramProtocol):
     def __init__(self):
         self.transport = None
 
@@ -48,32 +50,27 @@ class NodeServerUDPProtocol:
 
     def datagram_received(self, data, addr):
         message = data.decode()
+        logger.debug(f"Node received a request from {addr}: {message}")
 
-        # Assuming a simple response for demonstration purposes
-        response = "Hello from the node!"
 
+class EchoProtocolUDP(ProtocolUDP):
+
+    def datagram_received(self, data, addr):
+        super().datagram_received(data, addr)
         # Send response back to the client
-        self.transport.sendto(response.encode(), addr)
-
-        logger.debug(f"Node received a request: {message}")
+        self.transport.sendto(data.encode(), addr)
 
 
 class NodeServerUDP(NodeServerBase):
-    async def handle_client(self, data, addr):
-        message = data.decode()
 
-        # Assuming a simple response for demonstration purposes
-        response = "Hello from the node!"
-
-        # Send response back to the client
-        self.transport.sendto(response.encode(), addr)
-
-        logger.debug(f"Node received a request: {message}")
+    def __init__(self, address: tuple[str, int], protocol=None):
+        self.protocol = protocol or EchoProtocolUDP
+        super().__init__(address=address)
 
     async def start_server(self):
         loop = asyncio.get_running_loop()
         transport, protocol = await loop.create_datagram_endpoint(
-            NodeServerUDPProtocol, local_addr=(self.host, self.port)
+            self.protocol, local_addr=self.address
         )
 
         logger.info(f"Node server running on {transport.get_extra_info('sockname')}")

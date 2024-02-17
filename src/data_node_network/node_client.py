@@ -3,14 +3,17 @@ import time
 from prometheus_client import start_http_server, Counter, Histogram
 import logging
 
+from data_node_network.configuration import config_global
+
 logger = logging.getLogger(__name__)
+config = config_global["data_node_network"]
 
 
 class Node:
-    def __init__(self, node_id, host, port):
+    def __init__(self, node_id, address):
         self.node_id = node_id
-        self.host = host
-        self.port = port
+        self.address = address
+        self.host, self.port = address
 
 
 class NodeClient:
@@ -41,12 +44,12 @@ class NodeClient:
             labelnames=["node_id"],
         )
 
-    async def request_data(self, node):
-        raise NotImplementedError("Subclasses must implement request_data method")
+    async def request(self, node):
+        raise NotImplementedError("Subclasses must implement request method")
 
     async def periodic_request(self):
         while not self.stop_event.is_set():
-            tasks = [self.request_data(node) for node in self.nodes]
+            tasks = [self.request(node) for node in self.nodes]
             await asyncio.gather(*tasks)
             await asyncio.sleep(self.interval)
 
@@ -66,21 +69,21 @@ class NodeClient:
 
 
 class NodeClientTCP(NodeClient):
-    async def request_data(self, node):
+    async def request(self, node, message=""):
         start_time = time.time()
         writer = None
 
         try:
             reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(node.host, node.port), timeout=5
+                asyncio.open_connection(*node.address), timeout=5
             )
 
             # Send a request to the node with a timeout
-            writer.write(b"GET /data HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            writer.write(message.encode())
             await writer.drain()
 
             # Read the response from the node with a timeout
-            await reader.read(100)
+            await reader.read(config["node_client"]["buffer_size"])
         except asyncio.TimeoutError:
             logger.warning(f"Node {node.node_id} request timed out.")
             # Increment metrics for failed request
@@ -108,23 +111,49 @@ class NodeClientTCP(NodeClient):
 
 
 class NodeClientUDP(NodeClient):
-    async def request_data(self, node):
+    async def request(self, node, message=""):
         start_time = time.time()
 
         try:
             loop = asyncio.get_running_loop()
-            transport, protocol = await loop.create_datagram_endpoint(
-                lambda: asyncio.DatagramProtocol(), remote_addr=(node.host, node.port)
+
+            # Define a simple DatagramProtocol to handle incoming data
+            class UDPProtocol(asyncio.DatagramProtocol):
+                def __init__(self, future):
+                    self.future = future
+
+                def datagram_received(self, data, addr):
+                    # Process the received data (you can customize this part)
+                    # For now, just print the received data
+                    print(f"Received data from {node.node_id}: {data.decode()}")
+
+                    # Resolve the future to indicate that the data has been received
+                    self.future.set_result(True)
+
+            # Create a future to signal when data is received
+            data_received_future = loop.create_future()
+
+            # Create a DatagramProtocol instance with the future
+            udp_protocol = UDPProtocol(data_received_future)
+
+            # Create a UDP connection
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: udp_protocol, remote_addr=node.address
             )
 
             # Send a request to the node
-            transport.sendto(b"GET /data HTTP/1.1\r\nHost: example.com\r\n\r\n")
+            transport.sendto(message.encode())
 
+            # Wait for data to be received or timeout
+            await asyncio.wait_for(data_received_future, timeout=5)
+        except asyncio.TimeoutError:
+            logger.warning(f"Node {node.node_id} request timed out.")
+            # Increment metrics for failed request
+            self.failed_request_count.labels(node_id=node.node_id).inc()
         except Exception as e:
             logger.warning(f"Node {node.node_id} did not respond. Error: {e}")
             # Increment metrics for failed request
             self.failed_request_count.labels(node_id=node.node_id).inc()
-
         finally:
             # Increment total request count and update duration metric
             self.request_count.labels(node_id=node.node_id).inc()
@@ -142,8 +171,8 @@ class NodeClientUDP(NodeClient):
 if __name__ == "__main__":
     # Create a list of Node objects with TCP information (host and port)
     nodes_list = [
-        Node(node_id=1, host="localhost", port=5001),
-        Node(node_id=2, host="localhost", port=5002),
+        Node(node_id=1, address=("localhost", 5001)),
+        Node(node_id=2, address=("localhost", 5002)),
         # Add more nodes as needed
     ]
 

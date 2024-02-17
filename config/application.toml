@@ -1,5 +1,7 @@
-[node_server]
-packet_size = 4096
+[data_node_network]
 
-[node_client]
-packet_size = 4096
+[data_node_network.node_server]
+buffer_size = 1024
+
+[data_node_network.node_client]
+buffer_size = 1024
