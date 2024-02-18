@@ -113,7 +113,7 @@ class NodeClient:
             labelnames=["node_id"],
         )
         self.request_duration_histogram = Histogram(
-            "request_duration_histogram_seconds",
+            "request_duration_seconds",
             "Histogram of response time to query the node",
             labelnames=["node_id"],
         )
