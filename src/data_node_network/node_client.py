@@ -223,7 +223,11 @@ class NodeClientTCP(NodeClient):
                     duration
                 )
                 writer.close()
-                await writer.wait_closed()
+                try:
+                    # Still need to test this
+                    await writer.wait_closed()
+                except ConnectionResetError as e:
+                    logger.warning(e)
 
         if result:
             self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
