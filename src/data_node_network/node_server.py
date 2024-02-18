@@ -93,11 +93,12 @@ class NodeServerTCP(NodeServerBase):
             await server.serve_forever()
 
     def start(self):
+        self.start_prometheus_server(
+            port=config["node_server"]["prometheus_port"]
+        )
+        
         async def _start_default():
             await self.start_server()
-            await self.start_prometheus_server(
-                port=config["node_server"]["prometheus_port"]
-            )
 
         asyncio.run(_start_default())
 
