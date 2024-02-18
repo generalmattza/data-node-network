@@ -93,6 +93,15 @@ class NodeServerTCP(NodeServerBase):
         async with server:
             await server.serve_forever()
 
+    def start(self):
+        async def _start_default():
+            await self.start_server()
+            await self.start_prometheus_server(
+                port=config["node_server"]["prometheus_port"]
+            )
+
+        asyncio.run(_start_default())
+
 
 class ServerProtocolUDP(asyncio.DatagramProtocol):
 
