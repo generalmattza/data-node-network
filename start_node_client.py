@@ -12,7 +12,7 @@ def main():
     buffer = []
     # Create a client
     node_client: NodeClientTCP = NodeClientTCP(node_list, buffer=buffer)
-    node_client.start()
+    node_client.start(interval=0.1)
 
 
 if __name__ == "__main__":

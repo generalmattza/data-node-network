@@ -88,32 +88,37 @@ class NodeClient:
 
         # Prometheus metrics
         self.request_count = Counter(
-            "node_client_requests_total",
+            "requests_total",
             "Total number of requests made by NodeClient",
             labelnames=["node_id"],
         )
         self.successful_request_count = Counter(
-            "node_client_successful_requests_total",
+            "successful_requests_total",
             "Total number of successful requests made by NodeClient",
             labelnames=["node_id"],
         )
         self.failed_request_count = Counter(
-            "node_client_failed_requests_total",
+            "failed_requests_total",
             "Total number of failed requests made by NodeClient",
             labelnames=["node_id"],
         )
         self.bytes_received_count = Counter(
-            "node_client_bytes_received_total",
+            "bytes_received_total",
             "Total number of bytes received by NodeClient",
             labelnames=["node_id"],
         )
+        self.bytes_sent_count = Counter(
+            "bytes_sent_total",
+            "Total number of bytes sent by NodeClient",
+            labelnames=["node_id"],
+        )
         self.response_time_histogram = Histogram(
-            "node_client_response_time_seconds",
+            "response_duration_seconds",
             "Histogram of response time to query the node",
             labelnames=["node_id"],
         )
         self.buffer_length = Gauge(
-            "node_client_buffer_length",
+            "buffer_length",
             "Length of the buffer in NodeClient",
         )
 
@@ -146,19 +151,25 @@ class NodeClient:
         ping_h = [convert_ns_to_human_readable(ping) for ping in ping_ns]
         return {node.node_id: ping for node, ping in zip(self.nodes, ping_h)}
 
-    def start_periodic_requests(self, message="get_data", interval=None):
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.periodic_request(message=message, interval=interval))
+    # def start_periodic_requests(self, message="get_data", interval=None):
+    #     loop = asyncio.get_event_loop()
+    #     loop.create_task(self.periodic_request(message=message, interval=interval))
 
-        try:
-            loop.run_forever()
-        finally:
-            loop.close()
+    #     try:
+    #         loop.run_forever()
+    #     finally:
+    #         loop.close()
 
-    def start(self):
-        self.start_periodic_requests(message="get_data", interval=1)
-        self.start_prometheus_server(port=config["node_client"]["prometheus_port"])
 
+    def start(self, message="get_data", interval=None):
+        self.start_prometheus_server(
+            port=config["node_client"]["prometheus_port"]
+        )
+        async def _start_default():
+            await self.periodic_request(message=message, interval=interval)
+
+        asyncio.run(_start_default())
+        
     def stop(self):
         self.stop_event.set()
 
@@ -169,6 +180,8 @@ class NodeClient:
     def start_prometheus_server(self, port=8000):
         # Start Prometheus HTTP server
         start_http_server(port)
+        logger.info(f"Prometheus server started on port {port}")
+        
 
 
 class NodeClientTCP(NodeClient):
@@ -183,6 +196,7 @@ class NodeClientTCP(NodeClient):
             )
 
             # Send a request to the node with a timeout
+            self.bytes_sent_count.labels(node_id=node.node_id).inc(len(message))
             writer.write(message.encode())
             await writer.drain()
 
