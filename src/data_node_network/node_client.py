@@ -112,8 +112,8 @@ class NodeClient:
             "Total number of bytes sent by NodeClient",
             labelnames=["node_id"],
         )
-        self.response_time_histogram = Histogram(
-            "response_duration_seconds",
+        self.request_duration_histogram = Histogram(
+            "request_duration_histogram_seconds",
             "Histogram of response time to query the node",
             labelnames=["node_id"],
         )
@@ -219,7 +219,7 @@ class NodeClientTCP(NodeClient):
                     f"Node {node.node_id} request duration: {duration:.4f} seconds"
                 )
                 # Record waiting time in the histogram
-                self.response_time_histogram.labels(node_id=node.node_id).observe(
+                self.request_duration_histogram.labels(node_id=node.node_id).observe(
                     duration
                 )
                 writer.close()
@@ -328,7 +328,7 @@ class NodeClientUDP(NodeClient):
             logger.info(f"Node {node.node_id} request duration: {duration:.4f} seconds")
             self.request_count.labels(node_id=node.node_id).inc()
             # Record waiting time in the histogram
-            self.response_time_histogram.labels(node_id=node.node_id).observe(duration)
+            self.request_duration_histogram.labels(node_id=node.node_id).observe(duration)
 
             if transport is not None:
                 transport.close()

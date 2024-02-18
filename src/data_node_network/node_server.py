@@ -21,18 +21,18 @@ class NodeServerBase:
         self.parser = json.dumps if parser is None else parser
 
         self.requests_counter = Counter(
-            "node_server_requests_total",
+            "requests_total",
             "Total number of requests received by NodeServer",
         )
         self.bytes_received_counter = Counter(
-            "node_server_bytes_received_total",
+            "bytes_received_total",
             "Total number of bytes received by NodeServer",
         )
         self.bytes_sent_counter = Counter(
-            "node_server_bytes_sent_total", "Total number of bytes sent by NodeServer"
+            "bytes_sent_total", "Total number of bytes sent by NodeServer"
         )
-        self.response_time_histogram = Histogram(
-            "node_server_response_time_seconds",
+        self.request_duration_histogram = Histogram(
+            "request_duration_seconds",
             "Histogram of response time to handle requests",
         )
 
@@ -83,7 +83,7 @@ class NodeServerTCP(NodeServerBase):
         response = await self.handle_message(message)
         await self.handle_client_post(writer, response)
 
-        self.response_time_histogram.observe(time.perf_counter() - start_time)
+        self.request_duration_histogram.observe(time.perf_counter() - start_time)
 
     async def start_server(self):
         server = await asyncio.start_server(self.handle_client, self.host, self.port)
