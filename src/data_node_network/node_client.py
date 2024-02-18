@@ -21,7 +21,21 @@ def convert_bytes_to_human_readable(num: float) -> str:
         num /= 1024.0
     return f"{num:.2f} {unit}"
 
+def convert_ns_to_human_readable(nanoseconds):
+    # Define conversion factors
+    micro_factor = 1e-3
+    milli_factor = 1e-6
+    second_factor = 1e-9
 
+    if nanoseconds < 1000:
+        return f"{nanoseconds} ns"
+    elif nanoseconds < 1e6:
+        return f"{nanoseconds * micro_factor:.2f} μs"
+    elif nanoseconds < 1e9:
+        return f"{nanoseconds * milli_factor:.2f} ms"
+    else:
+        return f"{nanoseconds * second_factor:.2f} s"
+    
 async def wait_for_any(futures, timeout):
     # Ensure that all elements in the iterable are instances of asyncio.Future
     if any(not isinstance(future, asyncio.Future) for future in futures):
@@ -110,12 +124,17 @@ class NodeClient:
             await asyncio.sleep(self.interval)
             
     def ping_nodes(self):
+        
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        current_time = time.time_ns()
         try:
-            return loop.run_until_complete(self.mass_request(message="getTime"))
+            node_times = loop.run_until_complete(self.mass_request(message="getTime"))
         finally:
             loop.close()
+        ping_ns = [node_time["request_time"] - current_time for node_time in node_times]
+        ping_h = [convert_ns_to_human_readable(ping) for ping in ping_ns]
+        return {node.node_id: ping for node, ping in zip(self.nodes, ping_h)}
             
 
     def start(self, prometheus_port=8000, message="getData"):
@@ -180,6 +199,10 @@ class NodeClientTCP(NodeClient):
                 writer.close()
                 await writer.wait_closed()
                 
+        if result:
+            self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
+            if self.parser:
+                return self.parser(result)
         return result
 
 
@@ -282,6 +305,10 @@ class NodeClientUDP(NodeClient):
             if transport is not None:
                 transport.close()
         
+        if result:
+            self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
+            if self.parser:
+                return self.parser(result)
         return result
 
 
