@@ -44,3 +44,4 @@ def load_config(filepath: Union[str, Path]) -> dict:
 
 config_global = load_config(CONFIG_FILEPATH)
 node_commands = load_config(NODE_COMMANDS)
+node_config = load_config("config/node_list.yaml")

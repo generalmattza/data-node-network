@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    address = ("localhost", 50_000)
+    address = ("pizero2.local", 50_000)
     node_id = 0
 
     # Create and start the server

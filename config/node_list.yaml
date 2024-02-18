@@ -1,0 +1,9 @@
+node_0:
+  node_id: 0
+  host: pizero2.local
+  port: 50_000
+  name: pi-zero-2
+  bucket: data-nodes
+  priority: 0
+  extra_tags:
+  type: 'data-gatherer'

@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 import time
 from typing import Any
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
@@ -65,10 +66,15 @@ async def wait_for_any(futures, timeout):
 
 
 class Node:
-    def __init__(self, node_id, address):
-        self.node_id = node_id
-        self.address = address
-        self.host, self.port = address
+    def __init__(self, config: dict):
+        self.node_id = config["node_id"]
+        self.host = config["host"]
+        self.port = config["port"]
+        self.address = (self.host, self.port)
+        self.bucket = config["bucket"]
+        self.extra_tags = config["extra_tags"]
+        self.priotity = config["priority"]
+        self.type = config["type"]
 
 
 class NodeClient:
