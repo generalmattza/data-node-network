@@ -87,7 +87,6 @@ class NodeServerTCP(NodeServerBase):
 
     async def start_server(self):
         server = await asyncio.start_server(self.handle_client, self.host, self.port)
-
         logger.info(f"Node server running on {server.sockets[0].getsockname()}")
 
         async with server:
