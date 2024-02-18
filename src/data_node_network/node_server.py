@@ -9,23 +9,26 @@ config = config_global["node_network"]
 
 READ_LIMIT = config["read_limit"]
 
+
 def handle_request(message):
     if message == "getData":
         return "Sending data"
     elif message == "getTime":
         return time.time_ns()
 
+
 class NodeServerBase:
     def __init__(self, address):
         self.address = address
         self.host, self.port = address
+        self.address_str = f"{self.host}:{self.port}"
 
     async def handle_client(self, reader, writer):
         raise NotImplementedError("Subclasses must implement handle_client method")
 
     async def start_server(self):
         raise NotImplementedError("Subclasses must implement start_server method")
-    
+
     async def ping(self):
         return True
 
@@ -34,7 +37,7 @@ class NodeServerTCP(NodeServerBase):
     async def handle_client(self, reader, writer):
         data = await reader.read(READ_LIMIT)
         message = data.decode()
-    
+
         response = handle_request(message)
 
         writer.write(response.encode())
@@ -58,7 +61,8 @@ class ServerProtocolUDP(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, addr):
-        logger.debug(f"Node received a request from {addr}: {data.decode()}")
+        host, port = addr[0], addr[1]
+        logger.debug(f"Node received request from {host}:{port} - '{data.decode()}'")
 
     def error_received(self, exc):
         logger.error(exc)
@@ -66,6 +70,7 @@ class ServerProtocolUDP(asyncio.DatagramProtocol):
     def connection_lost(self, exc):
         logger.debug(f"Connection closed: {exc}")
         self.on_con_lost.set_result(True)
+
 
 class EchoServerProtocol(ServerProtocolUDP):
 
@@ -92,19 +97,3 @@ class NodeServerUDP(NodeServerBase):
             await asyncio.Future()  # Run forever
         finally:
             transport.close()
-
-
-# Example usage:
-if __name__ == "__main__":
-    # Start TCP server
-    tcp_server = NodeServerTCP("localhost", 5002)
-    asyncio.create_task(tcp_server.start_server())
-
-    # Start UDP server
-    udp_server = NodeServerUDP("localhost", 5003)
-    asyncio.create_task(udp_server.start_server())
-
-    try:
-        asyncio.run(asyncio.sleep(3600))  # Run for an hour
-    except KeyboardInterrupt:
-        pass

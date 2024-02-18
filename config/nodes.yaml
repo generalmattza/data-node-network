@@ -1,5 +1,5 @@
 node_0:
-  ip_address: 10.10.32.90
+  address: 10.10.32.90
   port: 8888
   name: PZero liner heater controller upper
   bucket: prototype-zero

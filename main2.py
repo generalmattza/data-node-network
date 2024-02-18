@@ -9,27 +9,11 @@ from data_node_network.node_server import NodeServerUDP, ServerProtocolUDP
 import asyncio
 
 logger = logging.getLogger(__name__)
+
+
 def get_random_temperature():
     return random.uniform(20.0, 30.0)
 
-
-@pytest.fixture
-def create_nodes():
-    def _create_nodes(address):
-        address = address or ("localhost", 5001)
-        nodes_list = [
-            Node(node_id=1, address=address),
-            Node(node_id=2, address=address),
-            Node(node_id=3, address=address),
-            Node(node_id=4, address=address),
-            Node(node_id=5, address=address),
-            Node(node_id=6, address=address),
-            Node(node_id=7, address=address),
-            # Add more nodes as needed
-        ]
-        return nodes_list
-
-    return _create_nodes
 
 def handle_request(message):
     if message == "getData":
@@ -45,8 +29,9 @@ def handle_request(message):
     elif message == "getTime":
         return {"request_time": time.time_ns()}
 
+
 class TestNodeProtocolUDP(ServerProtocolUDP):
-        
+
     def datagram_received(self, data, addr):
         super().datagram_received(data, addr)
         response = handle_request(data.decode())
@@ -65,21 +50,25 @@ class TestNodeClientUDP(NodeClientUDP):
 
 
 def create_node_network():
-    addresses = [("localhost", port) for port in range(50000, 50010)]
+    addresses = [("localhost", port) for port in range(50000, 52000)]
     loop = asyncio.get_event_loop()
 
     # Create and start the server
     node_servers = [TestNodeUDP(address=address) for address in addresses]
-    server_task = [loop.create_task(node_server.start_server()) for node_server in node_servers]
+    server_task = [
+        loop.create_task(node_server.start_server()) for node_server in node_servers
+    ]
 
     # Create the client
-    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
+    nodes_list = [
+        Node(node_id=i, address=address) for i, address in enumerate(addresses)
+    ]
     buffer = []
     # Create a client
-    node_client: TestNodeClientUDP = TestNodeClientUDP(nodes_list, interval=1, buffer=buffer)
-    node_client.start()
-    
-    
+    node_client: TestNodeClientUDP = TestNodeClientUDP(nodes_list, buffer=buffer)
+    node_client.start_periodic_requests(message="getData", interval=0.01)
+
+
 def test_ping():
     addresses = [("localhost", port) for port in range(50000, 50010)]
     loop = asyncio.get_event_loop()
@@ -89,14 +78,16 @@ def test_ping():
     # server_task = [loop.create_task(node_server.start_server()) for node_server in node_servers]
 
     # Create the client
-    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
+    nodes_list = [
+        Node(node_id=i, address=address) for i, address in enumerate(addresses)
+    ]
     buffer = []
     # Create a client
-    node_client: TestNodeClientUDP = TestNodeClientUDP(nodes_list, interval=1, buffer=buffer)
+    node_client: TestNodeClientUDP = TestNodeClientUDP(nodes_list, buffer=buffer)
     pings = node_client.ping_nodes()
     return pings
-    
-    
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     create_node_network()

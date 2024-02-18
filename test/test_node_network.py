@@ -10,18 +10,22 @@ def test_node_network(test_node, test_node_client):
     addresses = [("localhost", port) for port in range(50000, 50010)]
     loop = asyncio.get_event_loop()
 
-    # Create and start the server
+    # Create and setup the server loop
     node_servers = [test_node(address=address) for address in addresses]
-    server_task = [loop.create_task(node_server.start_server()) for node_server in node_servers]
+    server_task = [
+        loop.create_task(node_server.start_server()) for node_server in node_servers
+    ]
 
-    # Create the client
-    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
+    # Create a list of nodes to probe
+    nodes_list = [
+        Node(node_id=i, address=address) for i, address in enumerate(addresses)
+    ]
     buffer = []
     # Create a client
-    node_client: TestNodeClientUDP = test_node_client(nodes_list, interval=1, buffer=buffer)
-    node_client.start()
-    
-    
+    node_client: TestNodeClientUDP = test_node_client(nodes_list, buffer=buffer)
+    node_client.start_periodic_requests(message="getData", interval=1)
+
+
 def test_ping(test_node, test_node_client):
     addresses = [("localhost", port) for port in range(50000, 50010)]
     loop = asyncio.get_event_loop()
@@ -31,10 +35,14 @@ def test_ping(test_node, test_node_client):
     # server_task = [loop.create_task(node_server.start_server()) for node_server in node_servers]
 
     # Create the client
-    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
+    nodes_list = [
+        Node(node_id=i, address=address) for i, address in enumerate(addresses)
+    ]
     buffer = []
     # Create a client
-    node_client: TestNodeClientUDP = test_node_client(nodes_list, interval=1, buffer=buffer)
+    node_client: TestNodeClientUDP = test_node_client(
+        nodes_list, interval=1, buffer=buffer
+    )
     pings = node_client.ping_nodes()
 
     # try:

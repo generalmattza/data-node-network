@@ -73,5 +73,5 @@ def test_network(server=NodeServerTCP, client=NodeClientTCP):
 if __name__ == "__main__":
     setup_logging()
     # test_network()
-    test_network(server=NodeServerUDP, client=NodeClientUDP)
+    # test_network(server=NodeServerUDP, client=NodeClientUDP)
 #
