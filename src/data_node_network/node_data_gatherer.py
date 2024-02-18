@@ -15,6 +15,7 @@ from data_node_network.configuration import (
 )
 
 logger = logging.getLogger(__name__)
+config = config_global["node_network"]
 READ_LIMIT = config_global["node_network"]["read_limit"]
 
 
@@ -87,8 +88,8 @@ class DataGathererNodeTCP(NodeServerTCP):
 
     async def start_server(self):
         server = await asyncio.start_server(self.handle_client, self.host, self.port)
-
         logger.info(f"Node server running on {server.sockets[0].getsockname()}")
+        self.start_prometheus_server(port=config["node_server"]["prometheus_port"])
 
         async with server:
             await server.serve_forever()

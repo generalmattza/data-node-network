@@ -1,6 +1,10 @@
 import asyncio
 import logging
 import json
+import time
+
+from prometheus_client import start_http_server, Counter, Histogram, Gauge
+
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
@@ -16,6 +20,22 @@ class NodeServerBase:
         self.node_id = node_id
         self.parser = json.dumps if parser is None else parser
 
+        self.requests_counter = Counter(
+            "node_server_requests_total",
+            "Total number of requests received by NodeServer",
+        )
+        self.bytes_received_counter = Counter(
+            "node_server_bytes_received_total",
+            "Total number of bytes received by NodeServer",
+        )
+        self.bytes_sent_counter = Counter(
+            "node_server_bytes_sent_total", "Total number of bytes sent by NodeServer"
+        )
+        self.response_time_histogram = Histogram(
+            "node_server_response_time_seconds",
+            "Histogram of response time to handle requests",
+        )
+
     async def handle_client(self, reader, writer):
         raise NotImplementedError("Subclasses must implement handle_client method")
 
@@ -27,6 +47,11 @@ class NodeServerBase:
         host, port = peername[0], peername[1]
         return f"{host}:{port}"
 
+    def start_prometheus_server(self, port=8000):
+        # Start Prometheus HTTP server
+        start_http_server(port)
+        logger.info(f"Prometheus server started on port {port}")
+
 
 class NodeServerTCP(NodeServerBase):
 
@@ -36,6 +61,8 @@ class NodeServerTCP(NodeServerBase):
         logger.debug(
             f"Node received a request from {self.get_client_address(writer)}: '{message}'"
         )
+        self.requests_counter.inc()
+        self.bytes_received_counter.inc(len(data))
         return message
 
     async def handle_client_post(self, writer, response):
@@ -44,14 +71,19 @@ class NodeServerTCP(NodeServerBase):
         writer.write(response.encode())
         await writer.drain()
         writer.close()
+        self.bytes_sent_counter.inc(len(response))
 
     async def handle_message(self, message):
         raise NotImplementedError("Subclasses must implement handle_message method")
 
     async def handle_client(self, reader, writer):
+        start_time = time.perf_counter()
+
         message = await self.handle_client_pre(reader, writer)
         response = await self.handle_message(message)
         await self.handle_client_post(writer, response)
+
+        self.response_time_histogram.observe(time.perf_counter() - start_time)
 
     async def start_server(self):
         server = await asyncio.start_server(self.handle_client, self.host, self.port)

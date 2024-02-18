@@ -1,6 +1,8 @@
 import asyncio
-from data_node_network.node_data_gatherer import DataGathererNodeTCP
 import logging
+
+from prometheus_client import start_http_server
+from data_node_network.node_data_gatherer import DataGathererNodeTCP
 
 logger = logging.getLogger(__name__)
 

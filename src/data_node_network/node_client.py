@@ -135,7 +135,6 @@ class NodeClient:
             await asyncio.sleep(interval)
 
     def ping_nodes(self):
-
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         current_time = time.time_ns()
@@ -147,11 +146,7 @@ class NodeClient:
         ping_h = [convert_ns_to_human_readable(ping) for ping in ping_ns]
         return {node.node_id: ping for node, ping in zip(self.nodes, ping_h)}
 
-    def start_periodic_requests(
-        self, prometheus_port=8000, message="get_data", interval=None
-    ):
-        # Start Prometheus HTTP server
-        start_http_server(prometheus_port)
+    def start_periodic_requests(self, message="get_data", interval=None):
         loop = asyncio.get_event_loop()
         loop.create_task(self.periodic_request(message=message, interval=interval))
 
@@ -160,12 +155,20 @@ class NodeClient:
         finally:
             loop.close()
 
+    def start(self):
+        self.start_periodic_requests(message="get_data", interval=1)
+        self.start_prometheus_server(port=config["node_client"]["prometheus_port"])
+
     def stop(self):
         self.stop_event.set()
 
     async def update_metrics(self):
         # Record the buffer length
         self.buffer_length.set(len(self.buffer))
+
+    def start_prometheus_server(self, port=8000):
+        # Start Prometheus HTTP server
+        start_http_server(port)
 
 
 class NodeClientTCP(NodeClient):
