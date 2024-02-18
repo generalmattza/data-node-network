@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    address = ("10.0.0.141", 50_000)
+    address = ("localhost", 50_000)
     node_id = 0
 
     # Create and start the server
