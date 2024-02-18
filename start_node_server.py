@@ -6,7 +6,7 @@ from data_node_network.node_data_gatherer import DataGathererNodeTCP
 logger = logging.getLogger(__name__)
 
 
-async def main():
+def main():
     address = ("localhost", 50_000)
     node_id = 0
 
@@ -17,5 +17,5 @@ async def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    asyncio.run(main())
-    # main()
+    # asyncio.run(main())
+    main()
