@@ -1,14 +1,17 @@
 import asyncio
 import time
-from prometheus_client import start_http_server, Counter, Histogram
+from typing import Any
+from prometheus_client import start_http_server, Counter, Histogram, Gauge
 import logging
 import json
+import aiohttp
 
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
-config = config_global["data_node_network"]
+config = config_global["node_network"]
 
+READ_LIMIT = config["read_limit"]
 
 def convert_bytes_to_human_readable(num: float) -> str:
     """Convert bytes to a human-readable format."""
@@ -18,6 +21,29 @@ def convert_bytes_to_human_readable(num: float) -> str:
         num /= 1024.0
     return f"{num:.2f} {unit}"
 
+
+async def wait_for_any(futures, timeout):
+    # Ensure that all elements in the iterable are instances of asyncio.Future
+    if any(not isinstance(future, asyncio.Future) for future in futures):
+        raise ValueError("All elements in the iterable must be asyncio.Future instances")
+
+    # Create tasks for each future
+    tasks = [asyncio.ensure_future(future) for future in futures]
+
+    # Use asyncio.wait to wait for any of the futures to complete
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED, timeout=timeout)
+
+    # Cancel the pending tasks to clean up resources
+    for task in pending:
+        task.cancel()
+
+    # Return the result of the completed task or raise a TimeoutError if none completed in time
+    if done:
+        return done.pop().result()
+    else:
+        raise asyncio.TimeoutError(f"Timeout of {timeout} seconds reached")
+
+
 class Node:
     def __init__(self, node_id, address):
         self.node_id = node_id
@@ -26,12 +52,14 @@ class Node:
 
 
 class NodeClient:
-    def __init__(self, nodes, interval=5, buffer=None, parser=None):
+    def __init__(self, nodes, interval=5, buffer=None, parser=None, timeout=10):
         self.nodes = nodes
         self.interval = interval
         self.stop_event = asyncio.Event()
         self.buffer = buffer or []
+        self.data_queue = asyncio.Queue()
         self.parser = json.loads if parser is None else parser
+        self.timeout = timeout
 
         # Prometheus metrics
         self.request_count = Counter(
@@ -59,35 +87,62 @@ class NodeClient:
             "Histogram of time spent waiting for the node",
             labelnames=["node_id"],
         )
+        self.buffer_length = Gauge(
+            "node_client_buffer_length",
+            "Length of the buffer in NodeClient",
+        )
 
-    async def request(self, node, message=""):
+    async def request(self, node, message="") -> Any:
         raise NotImplementedError("Subclasses must implement request method")
+    
+    async def mass_request(self, nodes=None, message=""):
+        nodes = nodes or self.nodes
+        tasks = [self.request(node, message=message) for node in nodes]
+        results =  await asyncio.gather(*tasks)
+        return results
 
-    async def periodic_request(self, message=""):
+    async def periodic_request(self, nodes=None, message=""):
         while not self.stop_event.is_set():
-            tasks = [self.request(node, message=message) for node in self.nodes]
-            await asyncio.gather(*tasks)
+            results = await self.mass_request(message=message, nodes=nodes)
+            if results:
+                self.buffer.extend(results)
+            await self.update_metrics()
             await asyncio.sleep(self.interval)
+            
+    def ping_nodes(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self.mass_request(message="getTime"))
+        finally:
+            loop.close()
+            
 
-    def start(self, prometheus_port=8000):
+    def start(self, prometheus_port=8000, message="getData"):
         # Start Prometheus HTTP server
         start_http_server(prometheus_port)
         loop = asyncio.get_event_loop()
-        loop.create_task(self.periodic_request("getData"))
+        loop.create_task(self.periodic_request(message=message))
 
         try:
             loop.run_forever()
         finally:
             loop.close()
-
+            
     def stop(self):
         self.stop_event.set()
+        
+    async def update_metrics(self):
+        # Record the buffer length
+        self.buffer_length.set(len(self.buffer))
+
 
 
 class NodeClientTCP(NodeClient):
     async def request(self, node, message=""):
         start_time = time.time()
         writer = None
+        result = None
 
         try:
             reader, writer = await asyncio.wait_for(
@@ -99,7 +154,7 @@ class NodeClientTCP(NodeClient):
             await writer.drain()
 
             # Read the response from the node with a timeout
-            await reader.read(config["node_client"]["buffer_size"])
+            result = await reader.read(READ_LIMIT)
         except asyncio.TimeoutError:
             logger.warning(f"Node {node.node_id} request timed out.")
             # Increment metrics for failed request
@@ -124,6 +179,8 @@ class NodeClientTCP(NodeClient):
 
                 writer.close()
                 await writer.wait_closed()
+                
+        return result
 
 
 class ClientProtocolUDP(asyncio.DatagramProtocol):
@@ -133,7 +190,8 @@ class ClientProtocolUDP(asyncio.DatagramProtocol):
 
     def connection_made(self, transport):
         self.transport = transport
-        self.server_address_str = f"{self.transport.get_extra_info('peername')[0]}:{self.transport.get_extra_info('peername')[1]}"
+        host, port = self.transport.get_extra_info("sockname")
+        self.server_address_str = f"{host}:{port}"
         logger.debug(f"Connected to server at {self.server_address_str}")
 
     def datagram_received(self, data, addr):
@@ -163,7 +221,7 @@ class NodeClientProtocolUDP(ClientProtocolUDP):
 
     def connection_made(self, transport):
         super().connection_made(transport)
-        logger.debug(f"Sending message {self.message} to {self.server_address_str}")
+        logger.debug(f"Sending message '{self.message}' to {self.server_address_str}")
         self.transport.sendto(self.message.encode())
 
     def datagram_received(self, data, addr):
@@ -175,6 +233,7 @@ class NodeClientProtocolUDP(ClientProtocolUDP):
 class NodeClientUDP(NodeClient):
     async def request(self, node, message=""):
         start_time = time.time()
+        result = None
 
         try:
             loop = asyncio.get_running_loop()
@@ -185,7 +244,8 @@ class NodeClientUDP(NodeClient):
 
             
             def data_received_callback(data):
-                self.buffer.append(self.parser(data))
+                nonlocal result
+                result = data
                 data_received_future.set_result(True)
                 self.bytes_received_count.labels(node_id=node.node_id).inc(len(data))
                 
@@ -200,7 +260,8 @@ class NodeClientUDP(NodeClient):
             )
 
             # Wait for data to be received or timeout
-            await asyncio.wait_for(data_received_future, timeout=5)
+            # await asyncio.wait_for(data_received_future, timeout=5)
+            await wait_for_any([data_received_future, on_con_lost], timeout=self.timeout)
         except asyncio.TimeoutError:
             logger.warning(f"Node {node.node_id} request timed out.")
             # Increment metrics for failed request
@@ -217,9 +278,11 @@ class NodeClientUDP(NodeClient):
 
             # Record waiting time in the histogram
             self.waiting_time_histogram.labels(node_id=node.node_id).observe(duration)
-
+            
             if transport is not None:
                 transport.close()
+        
+        return result
 
 
 # Example usage:

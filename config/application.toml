@@ -1,7 +1,6 @@
-[data_node_network]
+[node_network]
+read_limit = 1000 # Security feature
 
-[data_node_network.node_server]
-buffer_size = 1024
+[ode_network.node_server]
 
-[data_node_network.node_client]
-buffer_size = 1024
+[node_network.node_client]

@@ -7,19 +7,35 @@ logger = logging.getLogger(__name__)
 
 
 def test_node_network(test_node, test_node_client):
-    address = ("localhost", 50000)
+    addresses = [("localhost", port) for port in range(50000, 50010)]
     loop = asyncio.get_event_loop()
 
     # Create and start the server
-    node_server = test_node(address=address)
-    server_task = loop.create_task(node_server.start_server())
+    node_servers = [test_node(address=address) for address in addresses]
+    server_task = [loop.create_task(node_server.start_server()) for node_server in node_servers]
 
     # Create the client
-    nodes_list = [Node(node_id=1, address=address)]
+    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
     buffer = []
     # Create a client
-    node_client: TestNodeClientUDP = test_node_client(nodes_list, interval=0, buffer=buffer)
+    node_client: TestNodeClientUDP = test_node_client(nodes_list, interval=1, buffer=buffer)
     node_client.start()
+    
+    
+def test_ping(test_node, test_node_client):
+    addresses = [("localhost", port) for port in range(50000, 50010)]
+    loop = asyncio.get_event_loop()
+
+    # Create and start the server
+    # node_servers = [test_node(address=address) for address in addresses]
+    # server_task = [loop.create_task(node_server.start_server()) for node_server in node_servers]
+
+    # Create the client
+    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
+    buffer = []
+    # Create a client
+    node_client: TestNodeClientUDP = test_node_client(nodes_list, interval=1, buffer=buffer)
+    pings = node_client.ping_nodes()
 
     # try:
     #     # Start the client

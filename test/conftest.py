@@ -1,6 +1,7 @@
 import pytest
 import logging
 import json
+import time
 
 from data_node_network.node_client import NodeClientUDP, Node
 from data_node_network.node_server import NodeServerUDP, ServerProtocolUDP
@@ -31,15 +32,9 @@ def create_nodes():
 
     return _create_nodes
 
-
-class TestNodeProtocolUDP(ServerProtocolUDP):
-    def datagram_received(self, data, addr):
-        super().datagram_received(data, addr)
-        self.transport.sendto(data, addr)
-        
-    def datagram_received(self, data, addr):
-        super().datagram_received(data, addr)
-        response = {
+def handle_request(message):
+    if message == "getData":
+        return {
             "measurement": "cpu_temperature",
             "fields": {
                 "max": get_random_temperature(),
@@ -48,6 +43,14 @@ class TestNodeProtocolUDP(ServerProtocolUDP):
             },
             "tags": {"host": "server01", "region": "us-west"},
         }
+    elif message == "getTime":
+        return {"request_time": time.time_ns()}
+
+class TestNodeProtocolUDP(ServerProtocolUDP):
+        
+    def datagram_received(self, data, addr):
+        super().datagram_received(data, addr)
+        response = handle_request(data.decode())
         response = json.dumps(response)
         # Send response back to the client
         self.transport.sendto(response.encode(), addr)
