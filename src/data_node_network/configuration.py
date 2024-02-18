@@ -4,6 +4,7 @@ from pathlib import Path
 import tomli
 
 CONFIG_FILEPATH = "config/application.toml"
+NODE_COMMANDS = "config/node_commands.yaml"
 
 
 def load_config(filepath: Union[str, Path]) -> dict:
@@ -42,3 +43,4 @@ def load_config(filepath: Union[str, Path]) -> dict:
 
 
 config_global = load_config(CONFIG_FILEPATH)
+node_commands = load_config(NODE_COMMANDS)

@@ -75,7 +75,7 @@ class NodeClient:
     def __init__(self, nodes, buffer=None, parser=None, timeout=10):
         self.nodes = nodes
         self.stop_event = asyncio.Event()
-        self.buffer = buffer or []
+        self.buffer = [] if buffer is None else buffer
         self.data_queue = asyncio.Queue()
         self.parser = json.loads if parser is None else parser
         self.timeout = timeout
@@ -134,7 +134,7 @@ class NodeClient:
         asyncio.set_event_loop(loop)
         current_time = time.time_ns()
         try:
-            node_times = loop.run_until_complete(self.mass_request(message="getTime"))
+            node_times = loop.run_until_complete(self.mass_request(message="get_time"))
         finally:
             loop.close()
         ping_ns = [node_time["request_time"] - current_time for node_time in node_times]
@@ -142,7 +142,7 @@ class NodeClient:
         return {node.node_id: ping for node, ping in zip(self.nodes, ping_h)}
 
     def start_periodic_requests(
-        self, prometheus_port=8000, message="getData", interval=None
+        self, prometheus_port=8000, message="get_data", interval=None
     ):
         # Start Prometheus HTTP server
         start_http_server(prometheus_port)

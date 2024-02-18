@@ -1,27 +1,20 @@
 import asyncio
 import logging
-import time
-
+import json
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
 config = config_global["node_network"]
-
 READ_LIMIT = config["read_limit"]
 
 
-def handle_request(message):
-    if message == "getData":
-        return "Sending data"
-    elif message == "getTime":
-        return time.time_ns()
-
-
 class NodeServerBase:
-    def __init__(self, address):
+    def __init__(self, address, node_id, parser=None):
         self.address = address
         self.host, self.port = address
         self.address_str = f"{self.host}:{self.port}"
+        self.node_id = node_id
+        self.parser = json.dumps if parser is None else parser
 
     async def handle_client(self, reader, writer):
         raise NotImplementedError("Subclasses must implement handle_client method")
@@ -29,22 +22,36 @@ class NodeServerBase:
     async def start_server(self):
         raise NotImplementedError("Subclasses must implement start_server method")
 
-    async def ping(self):
-        return True
+    def get_client_address(self, writer):
+        peername = writer.get_extra_info("peername")
+        host, port = peername[0], peername[1]
+        return f"{host}:{port}"
 
 
 class NodeServerTCP(NodeServerBase):
-    async def handle_client(self, reader, writer):
+
+    async def handle_client_pre(self, reader, writer):
         data = await reader.read(READ_LIMIT)
         message = data.decode()
+        logger.debug(
+            f"Node received a request from {self.get_client_address(writer)}: '{message}'"
+        )
+        return message
 
-        response = handle_request(message)
-
+    async def handle_client_post(self, writer, response):
+        if self.parser:
+            response = self.parser(response)
         writer.write(response.encode())
         await writer.drain()
-
-        logger.debug(f"Node received a request: {message}")
         writer.close()
+
+    async def handle_message(self, message):
+        raise NotImplementedError("Subclasses must implement handle_message method")
+
+    async def handle_client(self, reader, writer):
+        message = await self.handle_client_pre(reader, writer)
+        response = await self.handle_message(message)
+        await self.handle_client_post(writer, response)
 
     async def start_server(self):
         server = await asyncio.start_server(self.handle_client, self.host, self.port)
