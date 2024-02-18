@@ -85,10 +85,3 @@ class DataGathererNodeTCP(NodeServerTCP):
     async def handle_message(self, message):
         response = self.command_menu(message)
         return self.parser(response)
-
-    async def start(self):
-        self.start_prometheus_server(port=config["node_server"]["prometheus_port"])
-        server = await asyncio.start_server(self.handle_client, self.host, self.port)
-
-        async with server:
-            await server.serve_forever()
