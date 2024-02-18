@@ -99,7 +99,7 @@ class NodeServerTCP(NodeServerBase):
                 port=config["node_server"]["prometheus_port"]
             )
 
-        # asyncio.run(_start_default())
+        asyncio.run(_start_default())
 
 
 class ServerProtocolUDP(asyncio.DatagramProtocol):
