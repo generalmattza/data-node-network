@@ -1,6 +1,6 @@
 [project]
 name = "data-node-network"
-description = "A_short_description"
+description = "A network of client and server nodes that can be used to build a data pipeline."
 
 dynamic = ["version"]
 

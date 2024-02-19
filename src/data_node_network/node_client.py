@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# ----------------------------------------------------------------------------
+# Created By  : Matthew Davidson
+# Created Date: 2024-01-23
+# Copyright © 2024 Davidson Engineering Ltd.
+# ---------------------------------------------------------------------------
+"""A module for the NodeClient class and its subclasses."""
+# ---------------------------------------------------------------------------
+
 import asyncio
 from dataclasses import dataclass
 import time
