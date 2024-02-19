@@ -5,6 +5,7 @@ from typing import Any
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 import logging
 import json
+import itertools
 
 from data_node_network.configuration import config_global
 
@@ -66,8 +67,10 @@ async def wait_for_any(futures, timeout):
 
 
 class Node:
+    _ids = itertools.count()
+    
     def __init__(self, config: dict):
-        self.node_id = config["node_id"]
+        self.node_id = config.get("node_id", self.get_id())
         self.host = config["host"]
         self.port = config["port"]
         self.address = (self.host, self.port)
@@ -75,7 +78,9 @@ class Node:
         self.extra_tags = config["extra_tags"]
         self.priotity = config["priority"]
         self.type = config["type"]
-
+        
+    def get_id(self):
+        return next(self._ids)
 
 class NodeClient:
     def __init__(self, nodes, buffer=None, parser=None, timeout=10):
