@@ -2,6 +2,7 @@ import asyncio
 import logging
 import json
 import time
+import itertools
 
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
@@ -13,11 +14,13 @@ READ_LIMIT = config["read_limit"]
 
 
 class NodeServerBase:
-    def __init__(self, address, node_id, parser=None):
+    _ids = itertools.count()
+
+    def __init__(self, address, node_id=None, parser=None):
         self.address = address
         self.host, self.port = address
         self.address_str = f"{self.host}:{self.port}"
-        self.node_id = node_id
+        self.node_id = node_id or self.get_id()
         self.parser = json.dumps if parser is None else parser
 
         self.requests_counter = Counter(
@@ -52,6 +55,9 @@ class NodeServerBase:
         start_http_server(port)
         logger.info(f"Prometheus server started on port {port}")
 
+    def get_id(self):
+        return next(self._ids)
+
 
 class NodeServerTCP(NodeServerBase):
 
@@ -66,7 +72,7 @@ class NodeServerTCP(NodeServerBase):
         return message
 
     async def handle_client_post(self, writer, response):
-        if self.parser:
+        if self.parser and not isinstance(response, str):
             response = self.parser(response)
         writer.write(response.encode())
         await writer.drain()
@@ -93,10 +99,8 @@ class NodeServerTCP(NodeServerBase):
             await server.serve_forever()
 
     def start(self):
-        self.start_prometheus_server(
-            port=config["node_server"]["prometheus_port"]
-        )
-        
+        self.start_prometheus_server(port=config["node_server"]["prometheus_port"])
+
         async def _start_default():
             await self.start_server()
 

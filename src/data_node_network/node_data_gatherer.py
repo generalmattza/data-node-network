@@ -21,6 +21,7 @@ READ_LIMIT = config["read_limit"]
 def get_random_temperature():
     return random.uniform(20.0, 30.0)
 
+
 @dataclass
 class NodeCommandProcessor:
     command_menu: dict
@@ -30,10 +31,11 @@ class NodeCommandProcessor:
         if command not in self.command_menu:
             return "Invalid command"
         return getattr(self, command)()
-    
+
+
 @dataclass
 class GathererCommandProcessor(NodeCommandProcessor):
-    
+
     def get_data(self):
         return {
             "measurement": "cpu_temperature",
@@ -57,7 +59,7 @@ class GathererCommandProcessor(NodeCommandProcessor):
             "node_address": self.node_address,
             "node_type": "data-gatherer",
             "node_status": self.node_status,
-            "time": self.time()
+            "time": time.time(),
         }
 
     def start_logging(self):
@@ -74,21 +76,22 @@ class GathererCommandProcessor(NodeCommandProcessor):
 
     def get_file_list(self):
         return "File list"
-    
+
     @property
     def node_id(self):
         return self.node.node_id
-    
+
     @property
     def node_address(self):
         return self.node.address_str
+
     @property
     def node_status(self):
         return "Node status"
 
 
 class GathererNodeTCP(NodeServerTCP):
-    def __init__(self, address, node_id):
+    def __init__(self, address, node_id=None):
         super().__init__(address=address, node_id=node_id)
         self.command_menu = GathererCommandProcessor(
             command_menu=node_commands["data-gatherer"], node=self
@@ -96,4 +99,4 @@ class GathererNodeTCP(NodeServerTCP):
 
     async def handle_request(self, request):
         response = self.command_menu(request)
-        return self.parser(response)
+        return response
