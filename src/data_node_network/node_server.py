@@ -73,14 +73,14 @@ class NodeServerTCP(NodeServerBase):
         writer.close()
         self.bytes_sent_counter.inc(len(response))
 
-    async def handle_message(self, message):
-        raise NotImplementedError("Subclasses must implement handle_message method")
+    async def handle_request(self, request):
+        raise NotImplementedError("Subclasses must implement handle_request method")
 
     async def handle_client(self, reader, writer):
         start_time = time.perf_counter()
 
-        message = await self.handle_client_pre(reader, writer)
-        response = await self.handle_message(message)
+        request = await self.handle_client_pre(reader, writer)
+        response = await self.handle_request(request)
         await self.handle_client_post(writer, response)
 
         self.request_duration_histogram.observe(time.perf_counter() - start_time)

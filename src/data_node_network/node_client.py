@@ -150,6 +150,11 @@ class NodeClient:
         ping_ns = [node_time["request_time"] - current_time for node_time in node_times]
         ping_h = [convert_ns_to_human_readable(ping) for ping in ping_ns]
         return {node.node_id: ping for node, ping in zip(self.nodes, ping_h)}
+    
+    def get_node_info(self, nodes=None):
+        async def _get_node_info():
+            return await self.mass_request(nodes=nodes, message="get_node_info")
+        return asyncio.run(_get_node_info())
 
     # def start_periodic_requests(self, message="get_data", interval=None):
     #     loop = asyncio.get_event_loop()

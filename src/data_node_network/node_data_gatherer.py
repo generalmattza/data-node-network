@@ -2,12 +2,11 @@ from dataclasses import dataclass
 import logging
 import time
 import random
-
-import asyncio
+from typing import Union
 
 from data_node_network.node_server import (
     NodeServerTCP,
-    NodeServerUDP,
+    NodeServerTCP,
 )
 from data_node_network.configuration import (
     config_global,
@@ -16,18 +15,25 @@ from data_node_network.configuration import (
 
 logger = logging.getLogger(__name__)
 config = config_global["node_network"]
-READ_LIMIT = config_global["node_network"]["read_limit"]
+READ_LIMIT = config["read_limit"]
 
 
 def get_random_temperature():
     return random.uniform(20.0, 30.0)
 
-
 @dataclass
-class DataGathererCommandMenu:
-    commands_menu: dict
-    node_id: int
+class NodeCommandProcessor:
+    command_menu: dict
+    node: Union[NodeServerTCP, NodeServerTCP]
 
+    def __call__(self, command):
+        if command not in self.command_menu:
+            return "Invalid command"
+        return getattr(self, command)()
+    
+@dataclass
+class GathererCommandProcessor(NodeCommandProcessor):
+    
     def get_data(self):
         return {
             "measurement": "cpu_temperature",
@@ -39,20 +45,20 @@ class DataGathererCommandMenu:
             "tags": {"host": "server01", "region": "us-west"},
         }
 
-    def get_time(self):
-        return {f"node-{self.node_id}_time": time.time()}
+    def time(self):
+        return {f"node-{self.node.node_id}_time": time.time()}
 
     def get_status(self):
         return "Node is running"
 
-    def get_config(self):
-        return "Node configuration"
-
     def get_node_info(self):
-        return "Node information"
-
-    def get_node_status(self):
-        return "Node status"
+        return {
+            "node_id": self.node_id,
+            "node_address": self.node_address,
+            "node_type": "data-gatherer",
+            "node_status": self.node_status,
+            "time": self.time()
+        }
 
     def start_logging(self):
         return "Logging started"
@@ -68,20 +74,26 @@ class DataGathererCommandMenu:
 
     def get_file_list(self):
         return "File list"
+    
+    @property
+    def node_id(self):
+        return self.node.node_id
+    
+    @property
+    def node_address(self):
+        return self.node.address_str
+    @property
+    def node_status(self):
+        return "Node status"
 
-    def __call__(self, command):
-        if command not in self.commands_menu:
-            return "Invalid command"
-        return getattr(self, command)()
 
-
-class DataGathererNodeTCP(NodeServerTCP):
+class GathererNodeTCP(NodeServerTCP):
     def __init__(self, address, node_id):
         super().__init__(address=address, node_id=node_id)
-        self.command_menu = DataGathererCommandMenu(
-            commands_menu=node_commands["data-gatherer"], node_id=node_id
+        self.command_menu = GathererCommandProcessor(
+            commands_menu=node_commands["data-gatherer"], node=self
         )
 
-    async def handle_message(self, message):
-        response = self.command_menu(message)
+    async def handle_request(self, request):
+        response = self.command_menu(request)
         return self.parser(response)
