@@ -91,7 +91,7 @@ class GathererNodeTCP(NodeServerTCP):
     def __init__(self, address, node_id):
         super().__init__(address=address, node_id=node_id)
         self.command_menu = GathererCommandProcessor(
-            commands_menu=node_commands["data-gatherer"], node=self
+            command_menu=node_commands["data-gatherer"], node=self
         )
 
     async def handle_request(self, request):
