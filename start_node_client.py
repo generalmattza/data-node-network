@@ -22,6 +22,9 @@ def setup_logging(filepath="config/logger.yaml"):
             config = yaml.load(stream, Loader=yaml.FullLoader)
     else:
         raise FileNotFoundError
+    # create folder for log file
+    with Path("logs") as p:
+        p.mkdir(parents=True, exist_ok=True)
     logger = dictConfig(config)
     return logger
 
