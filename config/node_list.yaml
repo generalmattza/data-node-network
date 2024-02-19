@@ -1,5 +1,4 @@
 node_0:
-  node_id: 0
   host: 10.0.0.141
   port: 50_000
   name: pi-zero-2
