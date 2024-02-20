@@ -183,7 +183,11 @@ class NodeClient:
         return asyncio.run(_get_node_info())
 
     def start(self, message="get_data", interval=None):
-        self.start_prometheus_server(port=self.config["node_client"]["prometheus_port"])
+
+        if self.config["node_client"]["enable_prometheus_server"]:
+            self.start_prometheus_server(
+                port=self.config["node_client"]["prometheus_port"]
+            )
 
         async def _start_default():
             await self.periodic_request(message=message, interval=interval)
