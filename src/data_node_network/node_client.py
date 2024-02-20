@@ -11,7 +11,7 @@
 import asyncio
 from dataclasses import dataclass
 import time
-from typing import Any
+from typing import Any, Union
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 import logging
 import json
@@ -78,7 +78,7 @@ async def wait_for_any(futures, timeout):
 
 class Node:
     _ids = itertools.count()
-    
+
     def __init__(self, config: dict):
         self.node_id = config.get("node_id", self.get_id())
         self.host = config["host"]
@@ -88,16 +88,20 @@ class Node:
         self.extra_tags = config["extra_tags"]
         self.priotity = config["priority"]
         self.type = config["type"]
-        
+
     def get_id(self):
         return next(self._ids)
 
+
 class NodeClient:
-    def __init__(self, nodes, buffer=None, parser=None, timeout=10):
+    def __init__(
+        self, nodes: Union[dict, list[Node]], buffer=None, parser=None, timeout=10
+    ):
+        if isinstance(nodes, dict):
+            nodes = [Node(node) for node in nodes.values()]
         self.nodes = nodes
         self.stop_event = asyncio.Event()
-        self.buffer = [] if buffer is None else buffer
-        self.data_queue = asyncio.Queue()
+        self.buffer = asyncio.Queue() if buffer is None else buffer
         self.parser = json.loads if parser is None else parser
         self.timeout = timeout
 
@@ -165,10 +169,11 @@ class NodeClient:
         ping_ns = [node_time["request_time"] - current_time for node_time in node_times]
         ping_h = [convert_ns_to_human_readable(ping) for ping in ping_ns]
         return {node.node_id: ping for node, ping in zip(self.nodes, ping_h)}
-    
+
     def get_node_info(self, nodes=None):
         async def _get_node_info():
             return await self.mass_request(nodes=nodes, message="get_node_info")
+
         return asyncio.run(_get_node_info())
 
     # def start_periodic_requests(self, message="get_data", interval=None):
@@ -180,16 +185,14 @@ class NodeClient:
     #     finally:
     #         loop.close()
 
-
     def start(self, message="get_data", interval=None):
-        self.start_prometheus_server(
-            port=config["node_client"]["prometheus_port"]
-        )
+        self.start_prometheus_server(port=config["node_client"]["prometheus_port"])
+
         async def _start_default():
             await self.periodic_request(message=message, interval=interval)
 
         asyncio.run(_start_default())
-        
+
     def stop(self):
         self.stop_event.set()
 
@@ -201,7 +204,6 @@ class NodeClient:
         # Start Prometheus HTTP server
         start_http_server(port)
         logger.info(f"Prometheus server started on port {port}")
-        
 
 
 class NodeClientTCP(NodeClient):
@@ -352,7 +354,9 @@ class NodeClientUDP(NodeClient):
             logger.info(f"Node {node.node_id} request duration: {duration:.4f} seconds")
             self.request_count.labels(node_id=node.node_id).inc()
             # Record waiting time in the histogram
-            self.request_duration_histogram.labels(node_id=node.node_id).observe(duration)
+            self.request_duration_histogram.labels(node_id=node.node_id).observe(
+                duration
+            )
 
             if transport is not None:
                 transport.close()
