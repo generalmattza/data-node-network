@@ -20,9 +20,9 @@ import itertools
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
-config = config_global["node_network"]
+config_local = config_global["node_network"]
 
-READ_LIMIT = config["read_limit"]
+READ_LIMIT = config_local["read_limit"]
 
 
 def convert_bytes_to_human_readable(num: float) -> str:
@@ -95,7 +95,12 @@ class Node:
 
 class NodeClient:
     def __init__(
-        self, nodes: Union[dict, list[Node]], buffer=None, parser=None, timeout=10
+        self,
+        nodes: Union[dict, list[Node]],
+        buffer=None,
+        parser=None,
+        timeout=10,
+        config=None,
     ):
         if isinstance(nodes, dict):
             nodes = [Node(node) for node in nodes.values()]
@@ -104,6 +109,7 @@ class NodeClient:
         self.buffer = asyncio.Queue() if buffer is None else buffer
         self.parser = json.loads if parser is None else parser
         self.timeout = timeout
+        self.config = config or config_local
 
         # Prometheus metrics
         self.request_count = Counter(
@@ -176,17 +182,8 @@ class NodeClient:
 
         return asyncio.run(_get_node_info())
 
-    # def start_periodic_requests(self, message="get_data", interval=None):
-    #     loop = asyncio.get_event_loop()
-    #     loop.create_task(self.periodic_request(message=message, interval=interval))
-
-    #     try:
-    #         loop.run_forever()
-    #     finally:
-    #         loop.close()
-
     def start(self, message="get_data", interval=None):
-        self.start_prometheus_server(port=config["node_client"]["prometheus_port"])
+        self.start_prometheus_server(port=self.config["node_client"]["prometheus_port"])
 
         async def _start_default():
             await self.periodic_request(message=message, interval=interval)
@@ -317,7 +314,7 @@ class NodeClientUDP(NodeClient):
 
             # Create a future to signal when data is received
             data_received_future = loop.create_future()
-            on_con_lost = loop.create_future()  # not currently used
+            on_con_lost = loop.create_future()
 
             def data_received_callback(data):
                 nonlocal result
@@ -349,20 +346,20 @@ class NodeClientUDP(NodeClient):
             # Increment metrics for failed request
             self.failed_request_count.labels(node_id=node.node_id).inc()
         finally:
-            duration = time.time() - start_time
-            # Increment total request count and update duration metric
-            logger.info(f"Node {node.node_id} request duration: {duration:.4f} seconds")
-            self.request_count.labels(node_id=node.node_id).inc()
-            # Record waiting time in the histogram
-            self.request_duration_histogram.labels(node_id=node.node_id).observe(
-                duration
-            )
-
             if transport is not None:
                 transport.close()
-
-        if result:
-            self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
-            if self.parser:
-                return self.parser(result)
+            if result:
+                duration = time.time() - start_time
+                # Increment total request count and update duration metric
+                logger.info(
+                    f"Node {node.node_id} request duration: {duration:.4f} seconds"
+                )
+                self.request_count.labels(node_id=node.node_id).inc()
+                # Record waiting time in the histogram
+                self.request_duration_histogram.labels(node_id=node.node_id).observe(
+                    duration
+                )
+                self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
+                if self.parser:
+                    result = self.parser(result)
         return result
