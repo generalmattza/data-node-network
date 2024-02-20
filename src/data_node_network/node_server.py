@@ -17,6 +17,7 @@ import itertools
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
 from data_node_network.configuration import config_global
+from data_node_network.node import Node
 
 logger = logging.getLogger(__name__)
 config_local = config_global["node_network"]["node_server"]

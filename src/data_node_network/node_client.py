@@ -9,15 +9,15 @@
 # ---------------------------------------------------------------------------
 
 import asyncio
-from dataclasses import dataclass
 import time
 from typing import Any, Union
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 import logging
 import json
-import itertools
 
 from data_node_network.configuration import config_global
+from data_node_network.node import Node
+
 
 logger = logging.getLogger(__name__)
 config_local = config_global["node_network"]["node_client"]
@@ -74,23 +74,6 @@ async def wait_for_any(futures, timeout):
         return done.pop().result()
     else:
         raise asyncio.TimeoutError(f"Timeout of {timeout} seconds reached")
-
-
-class Node:
-    _ids = itertools.count()
-
-    def __init__(self, config: dict):
-        self.node_id = config.get("node_id", self.get_id())
-        self.host = config["host"]
-        self.port = config["port"]
-        self.address = (self.host, self.port)
-        self.bucket = config["bucket"]
-        self.extra_tags = config["extra_tags"]
-        self.priotity = config["priority"]
-        self.type = config["type"]
-
-    def get_id(self):
-        return next(self._ids)
 
 
 class NodeClient:
@@ -213,6 +196,8 @@ class NodeClientTCP(NodeClient):
         writer = None
         result = None
 
+        message = node.parse_message(message)
+
         try:
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(*node.address), timeout=self.timeout
@@ -312,6 +297,8 @@ class NodeClientUDP(NodeClient):
     async def request(self, node, message=""):
         start_time = time.time()
         result = None
+
+        message = node.parse_message(message)
 
         try:
             loop = asyncio.get_running_loop()
