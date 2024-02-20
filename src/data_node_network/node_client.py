@@ -94,12 +94,13 @@ class Node:
 
 
 class NodeClient:
+
     def __init__(
         self,
         nodes: Union[dict, list[Node]],
         buffer=None,
         parser=None,
-        timeout=10,
+        timeout=None,
         config=None,
     ):
         if isinstance(nodes, dict):
@@ -108,7 +109,7 @@ class NodeClient:
         self.stop_event = asyncio.Event()
         self.buffer = asyncio.Queue() if buffer is None else buffer
         self.parser = json.loads if parser is None else parser
-        self.timeout = timeout
+        self.timeout = timeout or config_local["timeout"]
         self.config = config or config_local
 
         # Prometheus metrics
