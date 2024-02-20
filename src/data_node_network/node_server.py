@@ -19,8 +19,9 @@ from prometheus_client import start_http_server, Counter, Histogram, Gauge
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
-config_local = config_global["node_network"]
-READ_LIMIT = config_local["read_limit"]
+config_local = config_global["node_network"]["node_server"]
+
+READ_LIMIT = config_global["node_network"]["read_limit"]
 
 
 class NodeServerBase:
@@ -110,10 +111,8 @@ class NodeServerTCP(NodeServerBase):
             await server.serve_forever()
 
     def start(self):
-        if self.config["node_server"]["enable_prometheus_server"]:
-            self.start_prometheus_server(
-                port=self.config["node_server"]["prometheus_port"]
-            )
+        if self.config["enable_prometheus_server"]:
+            self.start_prometheus_server(port=self.config["prometheus_port"])
 
         async def _start_default():
             await self.start_server()

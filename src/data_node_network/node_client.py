@@ -20,9 +20,9 @@ import itertools
 from data_node_network.configuration import config_global
 
 logger = logging.getLogger(__name__)
-config_local = config_global["node_network"]
+config_local = config_global["node_network"]["node_client"]
 
-READ_LIMIT = config_local["read_limit"]
+READ_LIMIT = config_global["node_network"]["read_limit"]
 
 
 def convert_bytes_to_human_readable(num: float) -> str:
@@ -156,7 +156,8 @@ class NodeClient:
         results = await asyncio.gather(*tasks)
         return results
 
-    async def periodic_request(self, nodes=None, message="", interval=10):
+    async def periodic_request(self, nodes=None, message="", interval=None):
+        interval = interval or self.config["update_interval"]
         while not self.stop_event.is_set():
             results = await self.mass_request(message=message, nodes=nodes)
             if results:
@@ -184,10 +185,8 @@ class NodeClient:
 
     def start(self, message="get_data", interval=None):
 
-        if self.config["node_client"]["enable_prometheus_server"]:
-            self.start_prometheus_server(
-                port=self.config["node_client"]["prometheus_port"]
-            )
+        if self.config["enable_prometheus_server"]:
+            self.start_prometheus_server(port=self.config["prometheus_port"])
 
         async def _start_default():
             await self.periodic_request(message=message, interval=interval)
