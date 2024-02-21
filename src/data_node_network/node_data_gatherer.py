@@ -12,7 +12,6 @@ from dataclasses import dataclass
 import logging
 import time
 import random
-from typing import Union
 
 from data_node_network.node_server import (
     NodeServerTCP,
@@ -22,25 +21,16 @@ from data_node_network.configuration import (
     config_global,
     node_commands,
 )
+from data_node_network.node import NodeCommandProcessor
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("data_node_network")
+
 config = config_global["node_network"]
 READ_LIMIT = config["read_limit"]
 
 
 def get_random_temperature():
     return random.uniform(20.0, 30.0)
-
-
-@dataclass
-class NodeCommandProcessor:
-    command_menu: dict
-    node: Union[NodeServerTCP, NodeServerTCP]
-
-    def __call__(self, command):
-        if command not in self.command_menu:
-            return "Invalid command"
-        return getattr(self, command)()
 
 
 @dataclass
