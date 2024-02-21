@@ -5,4 +5,4 @@ node_0:
   bucket: data-nodes
   priority: 0
   extra_tags:
-  type: 'data-gatherer'
+  node_type: 'data-gatherer'

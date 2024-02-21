@@ -54,6 +54,7 @@ class Node:
 
     def __init__(
         self,
+        name=None,
         node_id=None,
         host="localhost",
         port=0,
@@ -62,6 +63,7 @@ class Node:
         priority=None,
         node_type=None,
     ):
+        self.name = name
         self.node_id = node_id or self.get_id()
         self.host = host
         self.port = port
@@ -71,7 +73,7 @@ class Node:
         self.priotity = priority
         self.type = node_type
         try:
-            self.command = CommandProcessor(node_commands[self.type])
+            self.command = CommandProcessor(node_commands[self.type], self)
         except KeyError:
             logger.error(f"No commands are not defined for Node of type {self.type}")
 

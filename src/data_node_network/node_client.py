@@ -87,7 +87,7 @@ class NodeClient:
         config=None,
     ):
         if isinstance(nodes, dict):
-            nodes = [Node(node) for node in nodes.values()]
+            nodes = [Node(**node_config) for node_config in nodes.values()]
         self.nodes = nodes
         self.stop_event = asyncio.Event()
         self.buffer = asyncio.Queue() if buffer is None else buffer
