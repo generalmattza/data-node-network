@@ -12,7 +12,6 @@ import asyncio
 import logging
 import json
 import time
-import itertools
 
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
@@ -25,14 +24,12 @@ config_local = config_global["node_network"]["node_server"]
 READ_LIMIT = config_global["node_network"]["read_limit"]
 
 
-class NodeServerBase:
-    _ids = itertools.count()
+class NodeServer(Node):
 
     def __init__(self, address, node_id=None, parser=None, config=None):
+        super().__init__(node_id=node_id, host=address[0], port=address[1])
         self.address = address
-        self.host, self.port = address
         self.address_str = f"{self.host}:{self.port}"
-        self.node_id = node_id or self.get_id()
         self.parser = json.dumps if parser is None else parser
         self.config = config or config_local
 
@@ -72,7 +69,7 @@ class NodeServerBase:
         return next(self._ids)
 
 
-class NodeServerTCP(NodeServerBase):
+class NodeServerTCP(NodeServer):
 
     async def handle_client_pre(self, reader, writer):
         data = await reader.read(READ_LIMIT)
@@ -145,7 +142,7 @@ class EchoServerProtocol(ServerProtocolUDP):
         self.transport.sendto(data, addr)
 
 
-class NodeServerUDP(NodeServerBase):
+class NodeServerUDP(NodeServer):
 
     def __init__(self, address: tuple[str, int], protocol=None):
         self.protocol = protocol or EchoServerProtocol
