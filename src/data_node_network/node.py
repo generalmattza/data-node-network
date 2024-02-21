@@ -72,7 +72,7 @@ class Node:
         self.type = node_type
         try:
             self.command = CommandProcessor(node_commands[self.type])
-        except AttributeError:
+        except KeyError:
             logger.error(f"No commands are not defined for Node of type {self.type}")
 
     def get_id(self):
