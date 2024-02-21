@@ -196,7 +196,7 @@ class NodeClientTCP(NodeClient):
         writer = None
         result = None
 
-        message = node.parse_message(message)
+        message = node.parse_command(message)
 
         try:
             reader, writer = await asyncio.wait_for(
@@ -298,7 +298,7 @@ class NodeClientUDP(NodeClient):
         start_time = time.time()
         result = None
 
-        message = node.parse_message(message)
+        message = node.parse_command(message)
 
         try:
             loop = asyncio.get_running_loop()
