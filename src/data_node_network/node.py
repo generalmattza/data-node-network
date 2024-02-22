@@ -109,6 +109,3 @@ class Node:
 
     def get_id(self):
         return next(self._ids)
-
-    def parse_command(self, command):
-        return self.command.parse_command(command)
