@@ -345,7 +345,7 @@ class NodeClientUDP(NodeClient):
                 logger.info(
                     f"Node {node.node_id} request duration: {duration:.4f} seconds"
                 )
-                self.request_count.labels(node_id=node.node_id).inc()
+                self.request_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc()
                 # Record waiting time in the histogram
                 self.request_duration_histogram.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).observe(
                     duration
