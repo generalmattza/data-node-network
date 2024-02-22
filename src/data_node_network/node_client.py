@@ -99,32 +99,32 @@ class NodeClient:
         self.request_count = Counter(
             "requests_total",
             "Total number of requests made by NodeClient",
-            labelnames=["node_id"],
+            labelnames=["node_id", "node_name", "node_type"],
         )
         self.successful_request_count = Counter(
             "successful_requests_total",
             "Total number of successful requests made by NodeClient",
-            labelnames=["node_id"],
+            labelnames=["node_id", "node_name", "node_type"],
         )
         self.failed_request_count = Counter(
             "failed_requests_total",
             "Total number of failed requests made by NodeClient",
-            labelnames=["node_id"],
+            labelnames=["node_id", "node_name", "node_type"],
         )
         self.bytes_received_count = Counter(
             "bytes_received_total",
             "Total number of bytes received by NodeClient",
-            labelnames=["node_id"],
+            labelnames=["node_id", "node_name", "node_type"],
         )
         self.bytes_sent_count = Counter(
             "bytes_sent_total",
             "Total number of bytes sent by NodeClient",
-            labelnames=["node_id"],
+            labelnames=["node_id", "node_name", "node_type"],
         )
         self.request_duration_histogram = Histogram(
             "request_duration_seconds",
             "Histogram of response time to query the node",
-            labelnames=["node_id"],
+            labelnames=["node_id", "node_name", "node_type"],
         )
         self.buffer_length = Gauge(
             "buffer_length",
@@ -204,7 +204,7 @@ class NodeClientTCP(NodeClient):
             )
 
             # Send a request to the node with a timeout
-            self.bytes_sent_count.labels(node_id=node.node_id).inc(len(message))
+            self.bytes_sent_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc(len(message))
             writer.write(message.encode())
             await writer.drain()
 
@@ -213,21 +213,21 @@ class NodeClientTCP(NodeClient):
         except asyncio.TimeoutError:
             logger.warning(f"Node {node.node_id} request timed out.")
             # Increment metrics for failed request
-            self.failed_request_count.labels(node_id=node.node_id).inc()
+            self.failed_request_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc()
         except Exception as e:
             logger.warning(f"Node {node.node_id} did not respond. Error: {e}")
             # Increment metrics for failed request
-            self.failed_request_count.labels(node_id=node.node_id).inc()
+            self.failed_request_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc()
         finally:
             if writer is not None:
                 duration = time.perf_counter() - start_time
                 # Increment total request count and update duration metric
-                self.request_count.labels(node_id=node.node_id).inc()
+                self.request_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc()
                 logger.info(
                     f"Node {node.node_id} request duration: {duration:.4f} seconds"
                 )
                 # Record waiting time in the histogram
-                self.request_duration_histogram.labels(node_id=node.node_id).observe(
+                self.request_duration_histogram.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).observe(
                     duration
                 )
                 writer.close()
@@ -238,7 +238,7 @@ class NodeClientTCP(NodeClient):
                     logger.warning(e)
 
         if result:
-            self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
+            self.bytes_received_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc(len(result))
             if self.parser:
                 return self.parser(result)
         return result
@@ -311,7 +311,7 @@ class NodeClientUDP(NodeClient):
                 nonlocal result
                 result = data
                 data_received_future.set_result(True)
-                self.bytes_received_count.labels(node_id=node.node_id).inc(len(data))
+                self.bytes_received_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc(len(data))
 
             # Create a DatagramProtocol instance with the future
             udp_protocol_factory = lambda: NodeClientProtocolUDP(
@@ -331,11 +331,11 @@ class NodeClientUDP(NodeClient):
         except asyncio.TimeoutError:
             logger.warning(f"Node {node.node_id} request timed out.")
             # Increment metrics for failed request
-            self.failed_request_count.labels(node_id=node.node_id).inc()
+            self.failed_request_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc()
         except Exception as e:
             logger.warning(f"Node {node.node_id} did not respond. Error: {e}")
             # Increment metrics for failed request
-            self.failed_request_count.labels(node_id=node.node_id).inc()
+            self.failed_request_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc()
         finally:
             if transport is not None:
                 transport.close()
@@ -347,10 +347,10 @@ class NodeClientUDP(NodeClient):
                 )
                 self.request_count.labels(node_id=node.node_id).inc()
                 # Record waiting time in the histogram
-                self.request_duration_histogram.labels(node_id=node.node_id).observe(
+                self.request_duration_histogram.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).observe(
                     duration
                 )
-                self.bytes_received_count.labels(node_id=node.node_id).inc(len(result))
+                self.bytes_received_count.labels(node_id=node.node_id, node_name=node.name, node_type=node.node_type).inc(len(result))
                 if self.parser:
                     result = self.parser(result)
         return result
