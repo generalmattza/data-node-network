@@ -10,56 +10,19 @@ from data_node_network.configuration import (
     node_commands,
 )
 
-logger = logging.getLogger("data_node_network")
-
-
-# @dataclass
-# class CommandProcessor:
-#     command_menu: dict
-#     node: Node
-
-#     def __post_init__(self):
-#         self.total_commands = Counter(
-#             "total_commands",
-#             "Total commands received",
-#             ["node_id", "command", "node_type"],
-#         )
-#         self.invalid_commands = Counter(
-#             "invalid_commands",
-#             "Invalid commands received",
-#             ["node_id", "command", "node_type"],
-#         )
-
-#     def __call__(self, command):
-#         return getattr(self, self.parse_command(command))()
-
-#     def parse_command(self, command):
-#         if command not in self.command_menu:
-#             self.invalid_commands.labels(
-#                 node_id=self.node.node_id,
-#                 command=command,
-#                 node_type=self.node.type,
-#             ).inc()
-#             return f"Invalid command {command}"
-#         self.total_commands.labels(
-#             node_id=self.node.node_id,
-#             command=command,
-#             node_type=self.node.type,
-#         ).inc()
-#         return self.command_menu[command]
-
+logger = logging.getLogger("data_node_network.nodes")
 
 class Node:
     _ids = itertools.count()
-    total_commands = Counter(
+    node_total_commands = Counter(
         "total_commands",
         "Total commands received",
-        ["node_id", "command", "node_type"],
+        labelnames=("node_id", "command", "node_type"),
     )
-    invalid_commands = Counter(
+    node_invalid_commands = Counter(
         "invalid_commands",
         "Invalid commands received",
-        ["node_id", "command", "node_type"],
+        labelnames=("node_id", "command", "node_type"),
     )
 
     def __init__(
@@ -81,11 +44,11 @@ class Node:
         self.bucket = bucket
         self.extra_tags = extra_tags
         self.priotity = priority
-        self.type = node_type
+        self.node_type = node_type
         try:
-            self.command_menu = node_commands[self.type]
+            self.command_menu = node_commands[self.node_type]
         except KeyError:
-            logger.warning(f"No commands are not defined for Node of type {self.type}")
+            logger.warning(f"No commands are not defined for Node of type {self.node_type}")
 
     def command(self, command):
         return getattr(self, self.parse_command(command))()
@@ -93,17 +56,17 @@ class Node:
     def parse_command(self, command):
         if command not in self.command_menu:
             # update prometheus metric
-            self.invalid_commands.labels(
+            self.node_invalid_commands.labels(
                 node_id=self.node_id,
                 command=command,
-                node_type=self.type,
+                node_type=self.node_type,
             ).inc()
             return f"Invalid command {command}"
         # update prometheus metric
-        self.total_commands.labels(
+        self.node_total_commands.labels(
             node_id=self.node_id,
             command=command,
-            node_type=self.type,
+            node_type=self.node_type,
         ).inc()
         return self.command_menu[command]
 

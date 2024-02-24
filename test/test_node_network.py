@@ -1,4 +1,4 @@
-from data_node_network.node_client import Node
+from data_node_network.client import Node
 from conftest import TestNodeUDP, TestNodeClientUDP
 import logging
 import asyncio
@@ -11,14 +11,14 @@ def test_node_network(test_node, test_node_client):
     loop = asyncio.get_event_loop()
 
     # Create and setup the server loop
-    node_servers = [test_node(address=address) for address in addresses]
+    node_servers = [test_node(host=address[0], port=address[1]) for address in addresses]
     server_task = [
         loop.create_task(node_server.start_server()) for node_server in node_servers
     ]
 
     # Create a list of nodes to probe
     nodes_list = [
-        Node(node_id=i, address=address) for i, address in enumerate(addresses)
+        Node(node_id=i, host=address[0], port=address[1]) for i, address in enumerate(addresses)
     ]
     buffer = []
     # Create a client
@@ -36,7 +36,7 @@ def test_ping(test_node, test_node_client):
 
     # Create the client
     nodes_list = [
-        Node(node_id=i, address=address) for i, address in enumerate(addresses)
+        Node(node_id=i, host=address[0], port=address[1]) for i, address in enumerate(addresses)
     ]
     buffer = []
     # Create a client

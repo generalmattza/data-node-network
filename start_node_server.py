@@ -12,7 +12,7 @@ from logging.config import dictConfig
 from dotenv import load_dotenv
 import os
 
-from data_node_network.node_data_gatherer import GathererNodeTCP
+from data_node_network.data_gatherer import GathererNodeTCP
 
 load_dotenv()
 HOSTNAME = os.getenv('HOSTNAME')
@@ -31,10 +31,9 @@ def setup_logging(filepath="config/logger.yaml"):
     return logger
 
 def main():
-    address = (HOSTNAME, PORT)
 
     # Create and start the server
-    node_server = GathererNodeTCP(address=address)
+    node_server = GathererNodeTCP(host=HOSTNAME, port=PORT)
     node_server.start()
 
 if __name__ == "__main__":

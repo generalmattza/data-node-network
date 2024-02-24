@@ -8,12 +8,11 @@
 """A data gatherer node server for the data node network."""
 # ---------------------------------------------------------------------------
 
-from dataclasses import dataclass
 import logging
 import time
 import random
 
-from data_node_network.node_server import (
+from data_node_network.server import (
     NodeServerTCP,
     NodeServerTCP,
 )
@@ -21,20 +20,23 @@ from data_node_network.configuration import (
     config_global,
     node_commands,
 )
-from data_node_network.node import NodeCommandProcessor
-
-logger = logging.getLogger("data_node_network")
 
 config = config_global["node_network"]
 READ_LIMIT = config["read_limit"]
 
+logger = logging.getLogger("data_node_network.nodes")
 
 def get_random_temperature():
     return random.uniform(20.0, 30.0)
 
+class GathererNodeTCP(NodeServerTCP):
+    def __init__(self, address, node_id=None):
+        super().__init__(address=address, node_id=node_id)
+        self.command_menu = node_commands["data-gatherer"]
 
-@dataclass
-class GathererCommandProcessor(NodeCommandProcessor):
+    async def handle_request(self, request):
+        response = self.command_menu(request)
+        return response
 
     def get_data(self):
         return {
@@ -48,7 +50,7 @@ class GathererCommandProcessor(NodeCommandProcessor):
         }
 
     def time(self):
-        return {f"node-{self.node.node_id}_time": time.time()}
+        return {f"node-{self.node_id}_time": time.time()}
 
     def get_status(self):
         return "Node is running"
@@ -56,7 +58,7 @@ class GathererCommandProcessor(NodeCommandProcessor):
     def get_node_info(self):
         return {
             "node_id": self.node_id,
-            "node_address": self.node_address,
+            "node_address": self.node_address_str,
             "node_type": "data-gatherer",
             "node_status": self.node_status,
             "time": time.time(),
@@ -78,25 +80,5 @@ class GathererCommandProcessor(NodeCommandProcessor):
         return "File list"
 
     @property
-    def node_id(self):
-        return self.node.node_id
-
-    @property
-    def node_address(self):
-        return self.node.address_str
-
-    @property
     def node_status(self):
         return "Node status"
-
-
-class GathererNodeTCP(NodeServerTCP):
-    def __init__(self, address, node_id=None):
-        super().__init__(address=address, node_id=node_id)
-        self.command_menu = GathererCommandProcessor(
-            command_menu=node_commands["data-gatherer"], node=self
-        )
-
-    async def handle_request(self, request):
-        response = self.command_menu(request)
-        return response

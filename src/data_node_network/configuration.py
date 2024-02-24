@@ -2,10 +2,13 @@ from __future__ import annotations
 from typing import Union
 from pathlib import Path
 import tomli
+import logging
 
 CONFIG_FILEPATH = "config/application.toml"
-NODE_COMMANDS = "config/node_commands.yaml"
+DEFAULT_NODELIST_FILEPATH = "config/node_list.yaml"
+NODE_COMMANDS_FILEPATH = "config/node_commands.yaml"
 
+logger = logging.getLogger("data_node_network.client")
 
 def load_config(filepath: Union[str, Path]) -> dict:
     if isinstance(filepath, str):
@@ -43,8 +46,8 @@ def load_config(filepath: Union[str, Path]) -> dict:
 
 
 config_global = load_config(CONFIG_FILEPATH)
-node_commands = load_config(NODE_COMMANDS)
+node_commands = load_config(NODE_COMMANDS_FILEPATH)
 try:
-    node_config = load_config("config/node_list.yaml")
+    node_config = load_config(DEFAULT_NODELIST_FILEPATH)
 except FileNotFoundError:
-    pass
+    logger.warning(f"No node list found at {DEFAULT_NODELIST_FILEPATH}. Continuing with empty node list.")

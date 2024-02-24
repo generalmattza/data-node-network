@@ -1,12 +1,12 @@
 [node_network]
 read_limit = 1_000 # Security feature
 
-[node_network.node_server]
+[node_network.server]
 enable_prometheus_server = false
 prometheus_port = 8_000
 update_interval = 1
 
-[node_network.node_client]
+[node_network.client]
 enable_prometheus_server = false
 prometheus_port = 8_000
 update_interval = 1

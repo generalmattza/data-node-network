@@ -10,7 +10,7 @@
 
 from logging.config import dictConfig
 
-from data_node_network.node_client import Node, NodeClientTCP
+from data_node_network.client import Node, NodeClientTCP
 from data_node_network.configuration import node_config
 
 def setup_logging(filepath="config/logger.yaml"):
@@ -23,8 +23,7 @@ def setup_logging(filepath="config/logger.yaml"):
     else:
         raise FileNotFoundError
     # create folder for log file
-    with Path("logs") as p:
-        p.mkdir(parents=True, exist_ok=True)
+    Path("logs").mkdir(parents=True, exist_ok=True)
     logger = dictConfig(config)
     return logger
 

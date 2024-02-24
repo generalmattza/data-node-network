@@ -2,7 +2,7 @@ import pytest
 import asyncio
 
 # Import your Node and NodeClient classes
-from data_node_network.node_client import Node, NodeClientUDP
+from data_node_network.client import Node, NodeClientUDP
 from conftest import TestNodeUDP
 
 # Define a fixture to create and start the server
@@ -12,7 +12,7 @@ async def start_server():
     loop = asyncio.get_event_loop()
 
     # Create and start the server
-    node_servers = [TestNodeUDP(address=address) for address in addresses]
+    node_servers = [TestNodeUDP(host=address[0], port=address[1]) for address in addresses]
     server_tasks = [loop.create_task(node_server.start_server()) for node_server in node_servers]
     await asyncio.gather(*server_tasks)
 
@@ -26,7 +26,7 @@ async def start_server():
 @pytest.fixture
 def create_client(request, start_server):
     addresses = request.getfixturevalue('start_server')
-    nodes_list = [Node(node_id=i, address=address) for i, address in enumerate(addresses)]
+    nodes_list = [Node(node_id=i, host=address[0], port=address[1]) for i, address in enumerate(addresses)]
     buffer = []
     # Create a client
     node_client = NodeClientUDP(nodes_list, interval=1, buffer=buffer)
@@ -39,7 +39,7 @@ async def test_mass_request(start_server, create_client):
     # No need to call create_client directly as it's automatically injected due to the fixture dependency
 
     # Act
-    results = await create_client.mass_request(message="getTime")
+    results = await create_client.mass_request(message="get_time")
 
     # Assert
     assert results is not None
