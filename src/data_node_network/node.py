@@ -12,17 +12,20 @@ from data_node_network.configuration import (
 
 logger = logging.getLogger("data_node_network.nodes")
 
+
+class NodeError(Exception):
+    def __init__(self, message):
+        self.message = message
+        logger.error(self.message)
+        super().__init__(self.message)
+
+
 class Node:
     _ids = itertools.count()
-    node_total_commands = Counter(
-        "total_commands",
-        "Total commands received",
-        labelnames=("node_id", "command", "node_type"),
-    )
-    node_invalid_commands = Counter(
-        "invalid_commands",
-        "Invalid commands received",
-        labelnames=("node_id", "command", "node_type"),
+    node_commands_total = Counter(
+        "node_commands_total",
+        "Total commands executed|invalid",
+        labelnames=("node_id", "command", "outcome", "node_type"),
     )
 
     def __init__(
@@ -35,6 +38,7 @@ class Node:
         extra_tags=None,
         priority=None,
         node_type=None,
+        command_menu=None,
     ):
         self.name = name
         self.node_id = node_id or self.get_id()
@@ -43,32 +47,45 @@ class Node:
         self.address = (self.host, self.port)
         self.bucket = bucket
         self.extra_tags = extra_tags
-        self.priotity = priority
+        self.priority = priority
         self.node_type = node_type
-        try:
-            self.command_menu = node_commands[self.node_type]
-        except KeyError:
-            logger.warning(f"No commands are not defined for Node of type {self.node_type}")
+        if command_menu is not None:
+            self.command_menu = command_menu
+        else:
+            try:
+                self.command_menu = node_commands[self.node_type]
+            except KeyError:
+                logger.warning(
+                    f"No commands are not defined for Node of type {self.node_type}"
+                )
 
     def command(self, command):
         return getattr(self, self.parse_command(command))()
 
     def parse_command(self, command):
-        if command not in self.command_menu:
+        if not hasattr(self, "command_menu"):
+            raise NodeError(
+                f"No commands have been defined for node type {self.node_type}. Command {command} failed."
+            )
+        if command in self.command_menu:
             # update prometheus metric
-            self.node_invalid_commands.labels(
+            self.node_commands_total.labels(
                 node_id=self.node_id,
                 command=command,
+                outcome="executed",
                 node_type=self.node_type,
             ).inc()
-            return f"Invalid command {command}"
+            return self.command_menu[command]
+        # Else command is invalid
         # update prometheus metric
-        self.node_total_commands.labels(
+        self.node_commands_total.labels(
             node_id=self.node_id,
             command=command,
+            outcome="invalid",
             node_type=self.node_type,
         ).inc()
-        return self.command_menu[command]
+        return f"Invalid command {command}"
 
     def get_id(self):
+        # Return a unique id for each node
         return next(self._ids)

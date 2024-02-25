@@ -15,7 +15,7 @@ import time
 
 from prometheus_client import start_http_server, Counter, Histogram, Gauge
 
-from data_node_network.configuration import config_global
+from data_node_network.configuration import config_global, node_commands
 from data_node_network.node import Node
 
 logger = logging.getLogger("data_node_network.nodes")
@@ -37,7 +37,8 @@ class NodeServer(Node):
         labelnames=("node_id", "node_type", "host"),
     )
     node_bytes_sent_counter = Counter(
-        "node_bytes_sent_total", "Total number of bytes sent by NodeServer",
+        "node_bytes_sent_total",
+        "Total number of bytes sent by NodeServer",
         labelnames=("node_id", "node_type", "host"),
     )
     node_request_duration_histogram = Histogram(
@@ -46,10 +47,28 @@ class NodeServer(Node):
         labelnames=("node_id", "node_type", "host"),
     )
 
-    def __init__(self, host='localhost', port=0, node_id=None, parser=None, node_type=None, config=None):
-        super().__init__(node_id=node_id, host=host, port=port, node_type=node_type, bucket=None, priority=None, extra_tags=None)
-        self.host = host
-        self.port = port
+    def __init__(
+        self,
+        node_id=None,
+        host="localhost",
+        port=0,
+        name=None,
+        parser=None,
+        node_type=None,
+        config=None,
+        command_menu=None,
+    ):
+        super().__init__(
+            node_id=node_id,
+            host=host,
+            port=port,
+            name=name,
+            node_type=node_type,
+            bucket=None,
+            priority=None,
+            extra_tags=None,
+            command_menu=command_menu,
+        )
         self.address_str = f"{self.host}:{self.port}"
         self.parser = json.dumps if parser is None else parser
         self.config = config or config_local
@@ -83,7 +102,9 @@ class NodeServerTCP(NodeServer):
             f"Node received a request from {self.get_client_address(writer)}: '{message}'"
         )
         self.requests_counter.inc()
-        self.node_bytes_received_counter.labels(self.node_id, self.node_type, self.host).inc(len(data))
+        self.node_bytes_received_counter.labels(
+            self.node_id, self.node_type, self.host
+        ).inc(len(data))
         return message
 
     async def handle_client_post(self, writer, response):
@@ -92,7 +113,9 @@ class NodeServerTCP(NodeServer):
         writer.write(response.encode())
         await writer.drain()
         writer.close()
-        self.node_bytes_sent_counter.labels(self.node_id, self.node_type, self.host).inc(len(response))
+        self.node_bytes_sent_counter.labels(
+            self.node_id, self.node_type, self.host
+        ).inc(len(response))
 
     async def handle_request(self, request):
         raise NotImplementedError("Subclasses must implement handle_request method")
@@ -104,7 +127,9 @@ class NodeServerTCP(NodeServer):
         response = await self.handle_request(request)
         await self.handle_client_post(writer, response)
 
-        self.node_request_duration_histogram.labels(self.node_id, self.node_type, self.host).observe(time.perf_counter() - start_time)
+        self.node_request_duration_histogram.labels(
+            self.node_id, self.node_type, self.host
+        ).observe(time.perf_counter() - start_time)
 
     async def start_server(self):
         server = await asyncio.start_server(self.handle_client, self.host, self.port)
@@ -149,9 +174,9 @@ class EchoServerProtocol(ServerProtocolUDP):
 
 class NodeServerUDP(NodeServer):
 
-    def __init__(self, address: tuple[str, int], protocol=None):
+    def __init__(self, host: str, port: int, protocol=None, **kwargs):
         self.protocol = protocol or EchoServerProtocol
-        super().__init__(address=address)
+        super().__init__(host=host, port=port, **kwargs)
 
     async def start_server(self):
         loop = asyncio.get_running_loop()

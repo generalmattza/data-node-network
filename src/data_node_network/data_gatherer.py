@@ -26,12 +26,26 @@ READ_LIMIT = config["read_limit"]
 
 logger = logging.getLogger("data_node_network.nodes")
 
+
 def get_random_temperature():
     return random.uniform(20.0, 30.0)
 
+
 class GathererNodeTCP(NodeServerTCP):
-    def __init__(self, address, node_id=None):
-        super().__init__(address=address, node_id=node_id)
+    def __init__(
+        self,
+        host="localhost",
+        port=0,
+        name=None,
+        node_id=None,
+    ):
+        super().__init__(
+            host=host,
+            port=port,
+            name=name,
+            node_id=node_id,
+            node_type="data-gatherer",
+        )
         self.command_menu = node_commands["data-gatherer"]
 
     async def handle_request(self, request):

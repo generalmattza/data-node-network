@@ -1,6 +1,6 @@
 node_0:
-  host: 10.0.0.142
-  port: 50000
+  host: localhost
+  port: 8888
   name: pizero-2
   bucket: data-nodes
   priority: 0

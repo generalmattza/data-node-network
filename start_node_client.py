@@ -10,8 +10,10 @@
 
 from logging.config import dictConfig
 
-from data_node_network.client import Node, NodeClientTCP
+from data_node_network.client import NodeClientTCP
+from data_node_network.node import Node
 from data_node_network.configuration import node_config
+
 
 def setup_logging(filepath="config/logger.yaml"):
     import yaml
@@ -27,9 +29,10 @@ def setup_logging(filepath="config/logger.yaml"):
     logger = dictConfig(config)
     return logger
 
+
 def main():
 
-    node_list = [Node(node) for node in node_config.values()]
+    node_list = [Node(**node) for node in node_config.values()]
     # Create the client
     buffer = []
     # Create a client
