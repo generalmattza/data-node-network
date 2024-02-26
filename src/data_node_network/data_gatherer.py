@@ -27,10 +27,6 @@ READ_LIMIT = config["read_limit"]
 logger = logging.getLogger("data_node_network.nodes")
 
 
-def get_random_temperature():
-    return random.uniform(20.0, 30.0)
-
-
 class GathererNodeTCP(NodeServerTCP):
     def __init__(
         self,
@@ -49,19 +45,19 @@ class GathererNodeTCP(NodeServerTCP):
         self.command_menu = node_commands["data-gatherer"]
 
     async def handle_request(self, request):
-        response = self.command_menu(request)
+        response = self.command(request)
         return response
 
     def get_data(self):
-        return {
-            "measurement": "cpu_temperature",
-            "fields": {
-                "max": get_random_temperature(),
-                "min": get_random_temperature(),
-                "mean": get_random_temperature(),
-            },
-            "tags": {"host": "server01", "region": "us-west"},
-        }
+        data = self.gather_data()
+        data = self.process_data(data)
+        return data
+
+    def gather_data(self):
+        raise NotImplementedError("Subclasses must implement handle_client method")
+
+    def process_data(self, data):
+        raise NotImplementedError("Subclasses must implement handle_client method")
 
     def time(self):
         return {f"node-{self.node_id}_time": time.time()}
