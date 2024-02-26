@@ -15,6 +15,7 @@ class SensorNode(GathererNodeTCP):
         self, sensors: list[Sensor], host="localhost", port=0, name=None, node_id=None
     ):
         super().__init__(host=host, port=port, name=name, node_id=node_id)
+        self.sensors = sensors
 
     def gather_data(self):
         data = [sensor.read() for sensor in self.sensors]
