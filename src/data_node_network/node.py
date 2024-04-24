@@ -89,3 +89,6 @@ class Node:
     def get_id(self):
         # Return a unique id for each node
         return next(self._ids)
+
+    def __repr__(self) -> str:
+        return f"{self.name} (type={self.node_type}, id={self.node_id})"

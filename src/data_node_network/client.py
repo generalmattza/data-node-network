@@ -214,13 +214,13 @@ class NodeClientTCP(NodeClient):
             # Read the response from the node with a timeout
             result = await reader.read(READ_LIMIT)
         except asyncio.TimeoutError:
-            logger.warning(f"Node {node.node_id} request timed out.")
+            logger.warning(f"{str(node)} request timed out.")
             # Increment metrics for failed request
             self.failed_request_count.labels(
                 node_id=node.node_id, node_name=node.name, node_type=node.node_type
             ).inc()
         except Exception as e:
-            logger.warning(f"Node {node.node_id} did not respond. Error: {e}")
+            logger.warning(f"{str(node)} did not respond. Error: {e}")
             # Increment metrics for failed request
             self.failed_request_count.labels(
                 node_id=node.node_id, node_name=node.name, node_type=node.node_type
@@ -232,9 +232,7 @@ class NodeClientTCP(NodeClient):
                 self.request_count.labels(
                     node_id=node.node_id, node_name=node.name, node_type=node.node_type
                 ).inc()
-                logger.info(
-                    f"Node {node.node_id} request duration: {duration:.4f} seconds"
-                )
+                logger.info(f"{str(node)} request duration: {duration:.4f} seconds")
                 # Record waiting time in the histogram
                 self.request_duration_histogram.labels(
                     node_id=node.node_id, node_name=node.name, node_type=node.node_type
@@ -342,13 +340,13 @@ class NodeClientUDP(NodeClient):
                 [data_received_future, on_con_lost], timeout=self.timeout
             )
         except asyncio.TimeoutError:
-            logger.warning(f"Node {node.node_id} request timed out.")
+            logger.warning(f"{str(node)} request timed out")
             # Increment metrics for failed request
             self.failed_request_count.labels(
                 node_id=node.node_id, node_name=node.name, node_type=node.node_type
             ).inc()
         except Exception as e:
-            logger.warning(f"Node {node.node_id} did not respond. Error: {e}")
+            logger.warning(f"{str(node)} did not respond. Error: {e}")
             # Increment metrics for failed request
             self.failed_request_count.labels(
                 node_id=node.node_id, node_name=node.name, node_type=node.node_type
@@ -359,9 +357,7 @@ class NodeClientUDP(NodeClient):
             if result:
                 duration = time.time() - start_time
                 # Increment total request count and update duration metric
-                logger.info(
-                    f"Node {node.node_id} request duration: {duration:.4f} seconds"
-                )
+                logger.info(f"{str(node)} request duration: {duration:.4f} seconds")
                 self.request_count.labels(
                     node_id=node.node_id, node_name=node.name, node_type=node.node_type
                 ).inc()
